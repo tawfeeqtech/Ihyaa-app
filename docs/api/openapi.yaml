@@ -1,0 +1,2798 @@
+openapi: 3.1.0
+
+info:
+  title: Ihyaa REST API — واجهة برمجة تطبيقات إحياء
+  version: 1.0.0
+  description: |
+    # Ihyaa (إحياء) — REST API
+
+    منصة إحياء تربط أصحاب الأفكار بالمستثمرين عبر تقييم ذكي بالذكاء الاصطناعي.
+    Ihyaa connects idea owners with investors through AI-powered project evaluation.
+
+    ## المصادقة / Authentication
+    تسجيل الدخول يمنح توكن Sanctum صالحاً لمدة 24 ساعة يُرسل في الرأس:
+    `Authorization: Bearer {token}` — `SRS-NFR-07`.
+    Login issues a 24-hour Sanctum token sent via the header above.
+
+    ## الأخطاء / Errors
+    جميع الأخطاء تتبع الهيكل الموحد `{code, message, errors}` —
+    مع رؤوس `X-RateLimit-*` في كل استجابة و`Retry-After` عند 429 (انظر `rate-limiting-spec.md`).
+
+    ## المصادر المرجعية / References
+    - SRS-MVP v3 §5.4.5 (SRS-API-01..49) · `requirements/srs-mvp-v3.md`
+    - Rate Limiting: `requirements/rate-limiting-spec.md` (7 مستويات L1..L7)
+    - القيم الثابتة: `docs/api/enums.md`
+
+  contact:
+    name: Ihyaa Engineering Team
+  license:
+    name: Proprietary — MVP internal
+    identifier: LicenseRef-proprietary
+
+servers:
+  - url: https://api.ihyaa.app/api
+    description: الإنتاج / Production
+  - url: http://127.0.0.1:8000/api
+    description: التطوير المحلي / Local development
+
+security:
+  - {}
+
+tags:
+  - name: Auth
+    description: المصادقة والتسجيل — تسجيل، دخول، خروج، OTP، OAuth / Registration, login, logout, OTP, OAuth (SRS-API-01..08)
+  - name: Profile
+    description: الملف الشخصي حسب الدور / Role-based profile (SRS-API-09..12)
+  - name: Projects
+    description: إدارة المشاريع والاستعراض / Project CRUD & browsing (SRS-API-13..17, 19)
+  - name: Files
+    description: رفع ملفات المشروع / Project file uploads (SRS-API-18)
+  - name: Evaluation
+    description: تقييم AI غير المتزامن وإعادة التقييم والتقارير / Async AI evaluation, re-evaluation & reports (SRS-API-44..48)
+  - name: Search
+    description: البحث المتقدم والاقتراحات / Advanced search & suggestions (SRS-API-20, 21, 49)
+  - name: Interest
+    description: طلبات الاهتمام ومستندات الاتفاق / Interest requests & agreements (SRS-API-22..27)
+  - name: Notifications
+    description: الإشعارات الداخلية / In-app notifications (SRS-API-28..31)
+  - name: Dashboard
+    description: لوحات التحكم والمحفوظات وسلة المهملات / Dashboards, saved projects & trash (SRS-API-32..39)
+  - name: Admin
+    description: تحليلات المشرف / Admin analytics (SRS-API-40..41)
+  - name: AI Agent
+    description: وكيل تحليل المشاريع / Project analysis agent (SRS-API-42..43)
+  - name: Health
+    description: مداخل الصحة والجاهزية — بدون Rate Limit / Health & readiness (L7)
+
+paths:
+
+  # ============================================================
+  # HEALTH (L7) — بدون Rate Limit
+  # ============================================================
+  /health:
+    get:
+      tags: [Health]
+      summary: فحص صحة الخدمات / Health check
+      description: |
+        يفحص اتصالات قاعدة البيانات و Redis و Queue و Meilisearch.
+        مقيد بـ IP داخلي/أداة مراقبة في الإنتاج — بدون Rate Limit (L7).
+      operationId: healthCheck
+      responses:
+        "200":
+          description: جميع الخدمات تعمل / All services operational
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+              example:
+                status: ok
+                services: { database: up, cache: up, queue: up, search: up }
+                timestamp: "2026-08-02T13:00:00+03:00"
+        "503":
+          description: خدمة متعطلة / A service is down
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: جاهزية استقبال الحركة / Readiness probe
+      description: يعيد ready عندما يقبل الخادم الحركة — بدون Rate Limit (L7).
+      operationId: readiness
+      responses:
+        "200":
+          description: جاهز / Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+              example: { status: ready }
+        "503":
+          description: في صيانة / Under maintenance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+              example: { status: maintenance }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================================
+  # AUTH — SRS-API-01..08 (L1)
+  # ============================================================
+  /register:
+    post:
+      tags: [Auth]
+      summary: تسجيل مستخدم جديد / Register (SRS-API-01)
+      description: |
+        إنشاء حساب بدور صاحب فكرة أو مستثمر وإرسال رمز OTP للبريد (صلاحية دقيقة واحدة).
+        لا يُصدر توكن — التفعيل عبر `/email/verify`.
+        Rate Limit: 3/دقيقة لكل IP (auth.register).
+      operationId: register
+      x-srs-api: SRS-API-01
+      x-rate-limit: "3/دقيقة · IP · L1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+            example:
+              name: أحمد السالم
+              email: ahmed@example.com
+              password: "Str0ng!Pass"
+              password_confirmation: "Str0ng!Pass"
+              role: idea_owner
+      responses:
+        "201":
+          description: تم إنشاء الحساب وإرسال رمز التفعيل / Account created, OTP sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisterResponse" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: تسجيل الدخول / Login (SRS-API-02)
+      description: |
+        دخول بالبريد وكلمة المرور — يمنح توكن Sanctum صالحاً 24 ساعة.
+        ممنوع الدخول قبل تفعيل البريد. Rate Limit: 5/دقيقة لكل email (auth.login).
+      operationId: login
+      x-srs-api: SRS-API-02
+      x-rate-limit: "5/دقيقة · email · L1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+            example: { email: ahmed@example.com, password: "Str0ng!Pass" }
+      responses:
+        "200":
+          description: نجاح الدخول / Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: البريد غير مفعّل / Email not verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                code: EMAIL_NOT_VERIFIED
+                message: يرجى تفعيل بريدك الإلكتروني أولاً عبر الرمز المرسل
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /logout:
+    post:
+      tags: [Auth]
+      summary: تسجيل الخروج / Logout (SRS-API-03)
+      description: |
+        إلغاء التوكن الحالي وإنهاء الجلسة. Rate Limit: 10/دقيقة لكل user_id (auth.logout).
+      operationId: logout
+      x-srs-api: SRS-API-03
+      x-rate-limit: "10/دقيقة · user_id · L1"
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: انتهت الجلسة / Session ended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+              example: { message: تم تسجيل الخروج وإنهاء الجلسة بنجاح }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /email/verify:
+    post:
+      tags: [Auth]
+      summary: تفعيل البريد برمز OTP / Verify email (SRS-API-04)
+      description: |
+        تحقق من رمز OTP (6 أرقام، صالح دقيقة واحدة). عند حذف `code` يُعاد إرسال رمز جديد.
+        يمنح التوكن عند التحقق الناجح. Rate Limit: 3/دقيقة لكل email (auth.email-verify).
+      operationId: verifyEmail
+      x-srs-api: SRS-API-04
+      x-rate-limit: "3/دقيقة · email · L1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, description: رمز OTP من 6 أرقام — يُحذف لإعادة الإرسال / 6-digit OTP; omit to resend }
+            examples:
+              verify:
+                summary: تحقق بالرمز / Verify with code
+                value: { email: ahmed@example.com, code: "483920" }
+              resend:
+                summary: إعادة إرسال / Resend
+                value: { email: ahmed@example.com }
+      responses:
+        "200":
+          description: تحقق ناجح (توكن) أو إعادة إرسال / Verified (token) or resent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "409":
+          description: البريد مفعّل مسبقاً / Already verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: EMAIL_ALREADY_VERIFIED, message: البريد مفعّل مسبقاً }
+        "422":
+          description: رمز غير صحيح أو منتهي / Invalid or expired OTP
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                invalid: { summary: رمز غير صحيح, value: { code: OTP_INVALID, message: الرمز غير صحيح } }
+                expired: { summary: رمز منتهي, value: { code: OTP_EXPIRED, message: انتهت صلاحية الرمز. اطلب رمزاً جديداً } }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /forgot-password:
+    post:
+      tags: [Auth]
+      summary: طلب إعادة تعيين كلمة المرور / Forgot password (SRS-API-05)
+      description: |
+        يرسل رابط إعادة تعيين صالحاً لمدة ساعة — يعيد 200 دائماً لمنع تسريب وجود البريد.
+        Rate Limit: 2/دقيقة لكل email (auth.forgot-password).
+      operationId: forgotPassword
+      x-srs-api: SRS-API-05
+      x-rate-limit: "2/دقيقة · email · L1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+            example: { email: ahmed@example.com }
+      responses:
+        "200":
+          description: أُرسل الرابط إن وُجد الحساب / Link sent if account exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+              example: { message: إذا كان البريد مسجلاً في المنصة، ستصل رسالة إعادة التعيين خلال دقائق (الرابط صالح لمدة ساعة) }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /reset-password:
+    post:
+      tags: [Auth]
+      summary: إعادة تعيين كلمة المرور / Reset password (SRS-API-06)
+      description: |
+        تعيين كلمة مرور جديدة بالرمز المستلم عبر البريد. الرابط صالح ساعة واحدة.
+        Rate Limit: 2/دقيقة لكل email (auth.reset-password).
+      operationId: resetPassword
+      x-srs-api: SRS-API-06
+      x-rate-limit: "2/دقيقة · email · L1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetPasswordRequest" }
+            example:
+              email: ahmed@example.com
+              token: 8e2f9c1a4b7d
+              password: "New!Pass123"
+              password_confirmation: "New!Pass123"
+      responses:
+        "200":
+          description: تم التحديث / Password updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+              example: { message: تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن }
+        "422":
+          description: رابط غير صالح أو تحقق فاشل / Invalid link or validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: RESET_LINK_INVALID, message: الرابط غير صالح أو منتهي الصلاحية }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /auth/{provider}:
+    get:
+      tags: [Auth]
+      summary: بدء تسجيل الدخول عبر OAuth / OAuth redirect (SRS-API-07)
+      description: |
+        يبدأ تدفق OAuth2 مع Google أو GitHub أو LinkedIn ويعيد رابط إعادة التوجيه.
+        Rate Limit: 5/دقيقة لكل IP (auth.oauth).
+      operationId: oauthRedirect
+      x-srs-api: SRS-API-07
+      x-rate-limit: "5/دقيقة · IP · L1"
+      parameters:
+        - $ref: "#/components/parameters/ProviderPath"
+      responses:
+        "200":
+          description: رابط التفويض / Authorization redirect URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [redirect_url]
+                properties:
+                  redirect_url: { type: string, format: uri, description: رابط مزود الهوية / Identity provider URL }
+              example:
+                redirect_url: https://accounts.google.com/o/oauth2/v2/auth?client_id=...&redirect_uri=...&state=...
+        "422":
+          description: مزود غير مدعوم / Unsupported provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: VALIDATION_ERROR, message: "مزود المصادقة غير مدعوم — المتاح: google, github, linkedin" }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /auth/{provider}/callback:
+    post:
+      tags: [Auth]
+      summary: استلام رد OAuth وتعيين الدور / OAuth callback (SRS-API-08)
+      description: |
+        يتبادل كود التفويض ويصدر التوكن. عند أول دخول عبر OAuth يجب إرسال `role`
+        (idea_owner أو investor) — وإلا خطأ ROLE_REQUIRED (SRS-F01-07).
+        Rate Limit: 5/دقيقة لكل IP (auth.oauth).
+      operationId: oauthCallback
+      x-srs-api: SRS-API-08
+      x-rate-limit: "5/دقيقة · IP · L1"
+      parameters:
+        - $ref: "#/components/parameters/ProviderPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, description: كود التفويض من المزود / Authorization code }
+                role:
+                  type: string
+                  enum: [idea_owner, investor]
+                  description: إلزامي عند أول دخول فقط / Required only on first login
+            example: { code: "4/0AX4XfGi...", role: idea_owner }
+      responses:
+        "200":
+          description: دخول ناجح — مع requires_role عند أول دخول / Success — requires_role on first login
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthResponse" }
+        "401":
+          description: فشل تفويض المزود / Provider authorization failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: UNAUTHENTICATED, message: تعذر الاتصال بـ Google. يرجى المحاولة مرة أخرى أو استخدام البريد وكلمة المرور }
+        "422":
+          description: الدور مطلوب / Role required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: ROLE_REQUIRED, message: يرجى اختيار دورك (صاحب فكرة أو مستثمر) }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # PROFILE — SRS-API-09..12
+  # ============================================================
+  /profile:
+    get:
+      tags: [Profile]
+      summary: الملف الشخصي الحالي / Current profile (SRS-API-09)
+      description: |
+        يعيد بيانات المستخدم وملفه حسب دوره (صاحب فكرة: جامعة/تخصص/مهارات — مستثمر: مجال استثماري/نطاق تمويل/قطاعات).
+        Rate Limit: shared.read — 60/دقيقة (صاحب فكرة) أو 120/دقيقة (مستثمر).
+      operationId: getProfile
+      x-srs-api: SRS-API-09
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: الملف الشخصي / Profile data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+    put:
+      tags: [Profile]
+      summary: تحديث الملف الشخصي / Update profile (SRS-API-10)
+      description: |
+        تحديث حقول الملف حسب الدور. حقل `role` يُقبل فقط عند أول دخول OAuth (عندما role=null).
+        Rate Limit: shared.write — 10/دقيقة.
+      operationId: updateProfile
+      x-srs-api: SRS-API-10
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileUpdateRequest" }
+            examples:
+              idea_owner:
+                summary: صاحب فكرة / Idea owner
+                value:
+                  name: أحمد السالم المطيري
+                  bio: طالب هندسة برمجيات ومهتم ببناء حلول ذكية
+                  skills: [Laravel, React, AI]
+                  social_links: { linkedin: "https://linkedin.com/in/ahmed" }
+                  university: جامعة الملك سعود
+                  major: علوم الحاسب
+              investor:
+                summary: مستثمر / Investor
+                value:
+                  bio: مستثمر ملاك في التقنية المالية
+                  investment_focus: fintech
+                  investment_range: { min: 50000, max: 500000 }
+                  preferred_sectors: [fintech, ai, saas]
+      responses:
+        "200":
+          description: تم التحديث / Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          description: الدور محدد مسبقاً / Role already set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: ROLE_ALREADY_SET, message: الدور محدد مسبقاً ولا يمكن تغييره }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /profile/avatar:
+    post:
+      tags: [Profile]
+      summary: رفع الصورة الشخصية / Upload avatar (SRS-API-11)
+      description: |
+        رفع صورة شخصية (jpeg/png/webp حتى 2MB) — تُحفظ في Local Disk.
+        Rate Limit: upload.file (L5) — 10/دقيقة.
+      operationId: uploadAvatar
+      x-srs-api: SRS-API-11
+      x-rate-limit: "10/دقيقة · user_id · L5"
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [avatar]
+              properties:
+                avatar: { type: string, format: binary, description: ملف الصورة / Image file }
+      responses:
+        "200":
+          description: تم الرفع / Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, avatar_url]
+                properties:
+                  message: { type: string }
+                  avatar_url: { type: string, format: uri }
+              example:
+                message: تم تحديث الصورة الشخصية
+                avatar_url: https://api.ihyaa.app/storage/avatars/12_1700.jpg
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          description: صيغة أو حجم غير صالحين / Invalid type or size
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                type: { summary: صيغة مرفوضة, value: { code: FILE_TYPE_NOT_ALLOWED, message: صيغة الملف غير مسموحة } }
+                size: { summary: حجم كبير, value: { code: FILE_TOO_LARGE, message: حجم الملف تجاوز الحد المسموح (2MB) } }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /profile/{user}:
+    get:
+      tags: [Profile]
+      summary: الملف العام لمستخدم / Public profile (SRS-API-12)
+      description: |
+        ملف عام بدون البريد الإلكتروني — لأغراض العرض.
+        Rate Limit: public.browse — 30/دقيقة لكل IP (L2).
+      operationId: getPublicProfile
+      x-srs-api: SRS-API-12
+      x-rate-limit: "30/دقيقة · IP · L2"
+      parameters:
+        - name: user
+          in: path
+          required: true
+          description: معرّف المستخدم / User ID
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: الملف العام / Public profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicProfileResponse" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # PROJECTS — SRS-API-13..17, 19
+  # ============================================================
+  /projects:
+    get:
+      tags: [Projects]
+      summary: قائمة المشاريع / List projects (SRS-API-13)
+      description: |
+        شبكة بطاقات المشاريع المنشورة مع فلاتر وترقيم (12/صفحة افتراضياً).
+        Rate Limit: public.browse — 30/دقيقة لكل IP (burst 10).
+      operationId: listProjects
+      x-srs-api: SRS-API-13
+      x-rate-limit: "30/دقيقة · IP · L2"
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: category
+          in: query
+          description: مجال المشروع / Category
+          schema: { type: string }
+        - name: project_state
+          in: query
+          description: حالة المشروع / Project state
+          schema: { $ref: "#/components/schemas/ProjectState" }
+        - name: ai_score_min
+          in: query
+          description: الحد الأدنى للتقييم / Min AI score
+          schema: { type: integer, minimum: 0, maximum: 100 }
+        - name: ai_score_max
+          in: query
+          description: الحد الأقصى للتقييم / Max AI score
+          schema: { type: integer, minimum: 0, maximum: 100 }
+        - name: tags[]
+          in: query
+          description: فلترة بالعلامات / Filter by tags
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string } }
+        - name: sort
+          in: query
+          description: الترتيب / Sort
+          schema: { type: string, enum: [latest, score, views], default: latest }
+        - name: order
+          in: query
+          description: الاتجاه / Direction
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        "200":
+          description: قائمة البطاقات / Card list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectCardList" }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Projects]
+      summary: إنشاء مشروع / Create project (SRS-API-15)
+      description: |
+        إنشاء مشروع جديد — لصاحب فكرة. يطلق تقييم AI تلقائياً في Queue ويزامن فهرس Meilisearch.
+        Rate Limit: idea-owner.write — 10/دقيقة.
+      operationId: createProject
+      x-srs-api: SRS-API-15
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectWriteRequest" }
+            example:
+              title: منصة تمكين الذكاء الاصطناعي للمنشآت الصغيرة
+              description: منصة سحابية تساعد المنشآت الصغيرة على أتمتة خدمة العملاء باستخدام الذكاء الاصطناعي. تقدم المنصة مساعداً ذكياً يفهم لغة العملاء ويرد في ثوانٍ.
+              category: ai
+              project_state: needs_funding
+              status: published
+              tags: [ai, saas, automation]
+              github_url: https://github.com/ahmed/ai-enabler
+              video_url: https://www.youtube.com/watch?v=abc123
+              video_provider: youtube
+              budget_min: 150000
+              budget_max: 300000
+              business_info: "نموذج الاشتراك الشهري، السوق المستهدف: المنشآت الصغيرة في السعودية"
+      responses:
+        "201":
+          description: أُنشئ المشروع وبدأ التقييم / Created — evaluation queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectCreateResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: تحقق فاشل أو رابط فيديو غير صالح / Validation or invalid video URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                validation: { summary: حقول ناقصة, value: { code: VALIDATION_ERROR, message: البيانات المدخلة غير صحيحة } }
+                video: { summary: فيديو مرفوض, value: { code: VIDEO_URL_INVALID, message: الرابط لا ينتمي إلى YouTube أو Vimeo } }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}:
+    get:
+      tags: [Projects]
+      summary: تفاصيل المشروع / Project details (SRS-API-14)
+      description: |
+        تفاصيل المشروع حسب مصفوفة الإفصاح (visibility_level 1/2/3 — انظر enums.md §1.4):
+        زائر: التقييم الكلي فقط · مسجل: درجات الأبعاد والرسم الراداري · مالك/بعد الاتفاق: كل شيء.
+        المصادقة اختيارية هنا — تُحسب الحقول حسب المستخدم. Rate Limit: public.detail — 60/دقيقة (مخزّن مؤقتاً).
+      operationId: showProject
+      x-srs-api: SRS-API-14
+      x-rate-limit: "60/دقيقة · IP · L2"
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        "200":
+          description: تفاصيل المشروع حسب مستوى الإفصاح / Details per disclosure level
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectDetailResponse" }
+        "404":
+          $ref: "#/components/responses/ProjectUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+    put:
+      tags: [Projects]
+      summary: تحديث مشروع / Update project (SRS-API-16)
+      description: |
+        تحديث جزئي لحقول المشروع — للمالك فقط. عند تغيير الحقول الجوهرية
+        (الوصف/العلامات/GitHub/حالة المشروع/الفيديو) يُرجع re_evaluation_suggested=true
+        دون بدء إعادة تقييم تلقائية (SRS-F04-02).
+        Rate Limit: idea-owner.write — 10/دقيقة.
+      operationId: updateProject
+      x-srs-api: SRS-API-16
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectWriteRequest" }
+            example:
+              description: نسخة محدثة من الوصف بعد تطوير نموذج العمل وتوسيع الشريحة المستهدفة لتشمل المنشآت المتوسطة إضافة إلى الصغيرة مع خطة اشتراك مرنة
+              tags: [ai, saas, automation, arabic-nlp]
+      responses:
+        "200":
+          description: تم التحديث — مع إشارة التغييرات الجوهرية / Updated with significant-change flags
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectUpdateResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+    delete:
+      tags: [Projects]
+      summary: حذف مشروع (Soft Delete) / Delete project (SRS-API-17)
+      description: |
+        نقل المشروع إلى سلة المهملات (30 يوماً قبل الحذف النهائي التلقائي) — للمالك فقط.
+        Rate Limit: idea-owner.write — 10/دقيقة.
+      operationId: deleteProject
+      x-srs-api: SRS-API-17
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: نُقل إلى السلة / Moved to trash
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteProjectResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/evaluations:
+    get:
+      tags: [Projects]
+      summary: سجل تقييمات المشروع / Evaluation history (SRS-API-19)
+      description: |
+        سجل تقييمات المشروع (كامل). واجهة المقارنة تعرض آخر 5 ناجحة فقط.
+        متاح للمصادقين؛ السجل الكامل للمالك.
+        Rate Limit: shared.read — 30/دقيقة.
+      operationId: projectEvaluations
+      x-srs-api: SRS-API-19
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+        - $ref: "#/components/parameters/Page"
+        - name: status
+          in: query
+          description: فلترة بالحالة / Filter by status
+          schema: { $ref: "#/components/schemas/EvaluationStatus" }
+      responses:
+        "200":
+          description: السجل / History list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # FILES — SRS-API-18
+  # ============================================================
+  /projects/{project}/files:
+    post:
+      tags: [Files]
+      summary: رفع ملفات المشروع / Upload project files (SRS-API-18)
+      description: |
+        رفع صور (حتى 5 × 5MB) وPDF (حتى 3 × 10MB) لكل مشروع — للمالك.
+        التحقق من MIME الفعلي ومنع الملفات القابلة للتنفيذ (SRS-NFR-08).
+        الاستجابة تفصل بين المرفوع والمرفوض. Rate Limit: upload.file (L5) — 10/دقيقة.
+      operationId: uploadProjectFiles
+      x-srs-api: SRS-API-18
+      x-rate-limit: "10/دقيقة · user_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  description: صور (jpeg/png/webp ≤ 5MB) أو PDF (≤ 10MB) / Images or PDFs
+                  items: { type: string, format: binary }
+      responses:
+        "200":
+          description: نتيجة الرفع — مرفوع/مرفوض / Upload results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileUploadResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ProjectUnavailable"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # EVALUATION — SRS-API-44..48
+  # ============================================================
+  /projects/{project}/evaluate:
+    post:
+      tags: [Evaluation]
+      summary: بدء تقييم AI / Start AI evaluation (SRS-API-44)
+      description: |
+        بدء تقييم غير متزامن عبر Laravel Queue — للمالك. إذا مرّ أقل من 24 ساعة على آخر تقييم
+        يُرجع التقييم المخزَّن (AI Cache — SRS-AI-C01). Rate Limit: ai.evaluate — 3/دقيقة لكل (user+project).
+      operationId: evaluateProject
+      x-srs-api: SRS-API-44
+      x-rate-limit: "3/دقيقة · user_id+project_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+                  description: تجاوز Cache 24 ساعة (مكلف) / Bypass 24h cache (costly)
+      responses:
+        "202":
+          description: بدأت المعالجة / Processing started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationStartedResponse" }
+        "200":
+          description: أُعيد التقييم المخزَّن / Cached evaluation returned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationCachedResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ProjectUnavailable"
+        "409":
+          description: تقييم قيد المعالجة / Evaluation in progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: EVALUATION_IN_PROGRESS, message: يوجد تقييم قيد المعالجة لهذا المشروع حالياً }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/re-evaluate:
+    post:
+      tags: [Evaluation]
+      summary: إعادة تقييم يدوية / Manual re-evaluation (SRS-API-45)
+      description: |
+        إعادة تقييم بعد تأكيد المستخدم — للمالك. حد أدنى 24 ساعة بين التقييمين (SRS-AI-C01)
+        وإلا 409 EVALUATION_RATE_LIMITED مع next_evaluation_at.
+        Rate Limit: ai.evaluate — 3/دقيقة لكل (user+project).
+      operationId: reEvaluateProject
+      x-srs-api: SRS-API-45
+      x-rate-limit: "3/دقيقة · user_id+project_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  description: تأكيد المستخدم قبل بدء إعادة التقييم (SRS-F04-01) / User confirmation
+            example: { confirm: true }
+      responses:
+        "202":
+          description: بدأت إعادة التقييم / Re-evaluation started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationStartedResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: قبل مرور 24 ساعة / Within 24h window
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationRateLimitedResponse" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/evaluations/{evaluation}/retry:
+    post:
+      tags: [Evaluation]
+      summary: إعادة محاولة تقييم فاشل / Retry failed evaluation (SRS-API-46)
+      description: |
+        إعادة محاولة تقييم بحالة failed فقط — للمالك.
+        Rate Limit: ai.evaluate — 3/دقيقة لكل (user+project).
+      operationId: retryEvaluation
+      x-srs-api: SRS-API-46
+      x-rate-limit: "3/دقيقة · user_id+project_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+        - $ref: "#/components/parameters/EvaluationPath"
+      responses:
+        "202":
+          description: أُعيدت المحاولة / Retry started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationStartedResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: التقييم ليس فاشلاً / Evaluation not failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: EVALUATION_NOT_FAILED, message: لا يمكن إعادة المحاولة لتقييم غير فاشل }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/evaluation-status:
+    get:
+      tags: [Evaluation]
+      summary: حالة التقييم / Evaluation status (SRS-API-47)
+      description: |
+        استعلام حالة التقييم الحالي (processing/completed/failed) — للمالك.
+        يُستخدم مع WebSocket لتحديث الواجهة. Rate Limit: shared.read.
+      operationId: evaluationStatus
+      x-srs-api: SRS-API-47
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: الحالة الحالية / Current status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationStatusResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/evaluations/{evaluation}/report:
+    get:
+      tags: [Evaluation]
+      summary: تصدير تقرير التقييم PDF / Export evaluation report (SRS-API-48)
+      description: |
+        ملف PDF بتقرير التقييم الكامل (رادار + فجوات + توصيات + مهارات).
+        متاح لصاحب المشروع دائماً وللمستثمر بعد اتفاق accepted (مستوى إفصاح 3).
+        Rate Limit: ai.report — 10/دقيقة.
+      operationId: exportEvaluationReport
+      x-srs-api: SRS-API-48
+      x-rate-limit: "10/دقيقة · user_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+        - $ref: "#/components/parameters/EvaluationPath"
+      responses:
+        "200":
+          description: ملف PDF / PDF file
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: attachment; filename="evaluation-7-42.pdf"
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: الإفصاح أقل من المستوى 3 / Below disclosure level 3
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: FORBIDDEN, message: التقرير الكامل متاح لصاحب المشروع أو بعد إتمام الاتفاق }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # SEARCH & TAGS — SRS-API-20, 21, 49
+  # ============================================================
+  /search:
+    get:
+      tags: [Search]
+      summary: البحث المتقدم / Advanced search (SRS-API-20)
+      description: |
+        بحث نصي كامل عبر Meilisearch (عربي/إنجليزي مع تصحيح إملائي — استجابة < 200ms)
+        مع فلاتر وفرز وإحصاءات (facets) قابلة للمشاركة عبر الرابط.
+        Rate Limit: public.browse — 30/دقيقة لكل IP (burst 10).
+      operationId: searchProjects
+      x-srs-api: SRS-API-20
+      x-rate-limit: "30/دقيقة · IP · L2"
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: q
+          in: query
+          description: نص البحث / Query text
+          schema: { type: string }
+        - name: category
+          in: query
+          description: مجال / Category
+          schema: { type: string }
+        - name: ai_score_min
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 100 }
+        - name: ai_score_max
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 100 }
+        - name: project_state
+          in: query
+          schema: { $ref: "#/components/schemas/ProjectState" }
+        - name: tags[]
+          in: query
+          schema: { type: array, items: { type: string } }
+        - name: created_after
+          in: query
+          description: تاريخ الإنشاء من / Created after (ISO-8601)
+          schema: { type: string, format: date }
+        - name: created_before
+          in: query
+          description: تاريخ الإنشاء إلى / Created before (ISO-8601)
+          schema: { type: string, format: date }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, score, created_at, views], default: relevance }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        "200":
+          description: النتائج مع الفلاتر والإحصاءات / Results with facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResponse" }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+        "503":
+          description: محرك البحث غير متاح / Search engine unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: INTERNAL_ERROR, message: تعذر الاتصال بمحرك البحث. يرجى المحاولة لاحقاً }
+
+  /search/suggestions:
+    get:
+      tags: [Search]
+      summary: اقتراحات البحث / Search suggestions (SRS-API-21)
+      description: |
+        حتى 5 اقتراحات أثناء الكتابة (Debounce 300ms في الواجهة).
+        Rate Limit: public.browse — 30/دقيقة لكل IP.
+      operationId: searchSuggestions
+      x-srs-api: SRS-API-21
+      x-rate-limit: "30/دقيقة · IP · L2"
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: نص جزئي / Partial text
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: الاقتراحات / Suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 5
+                    items: { $ref: "#/components/schemas/Suggestion" }
+              example:
+                data:
+                  - { type: project, id: 7, title: منصة تمكين الذكاء الاصطناعي للمنشآت الصغيرة }
+                  - { type: tag, value: الذكاء الاصطناعي }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /tags/suggestions:
+    get:
+      tags: [Search]
+      summary: اقتراحات العلامات / Tag suggestions (SRS-API-49)
+      description: |
+        إكمال تلقائي للعلامات (حتى 10) بناءً على العلامات الموجودة.
+        Rate Limit: public.browse — 30/دقيقة لكل IP.
+      operationId: tagSuggestions
+      x-srs-api: SRS-API-49
+      x-rate-limit: "30/دقيقة · IP · L2"
+      parameters:
+        - name: q
+          in: query
+          description: جزء من العلامة / Tag prefix (اختياري)
+          schema: { type: string }
+      responses:
+        "200":
+          description: العلامات المقترحة / Suggested tags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 10
+                    items: { type: string }
+              example: { data: [laravel, laravel-api, laravel-vue, الذكاء الاصطناعي, ai, flutter] }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # INTEREST & AGREEMENT — SRS-API-22..27
+  # ============================================================
+  /projects/{project}/interest:
+    post:
+      tags: [Interest]
+      summary: إرسال طلب اهتمام / Send interest (SRS-API-22)
+      description: |
+        زر "أنا مهتم" — لمستثمر فقط. يمنع الطلب المكرر لمشروع له طلب نشط (SRS-F08-03)
+        ويشترط اكتمال الملف الشخصي (investment_focus). يرسل إشعار WebSocket لصاحب الفكرة.
+        Rate Limit: investor.write — 10/دقيقة.
+      operationId: sendInterest
+      x-srs-api: SRS-API-22
+      x-rate-limit: "10/دقيقة · user_id · L4-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InterestRequest" }
+            example:
+              interest_type: investment
+              message: أرى في مشروعك فرصة واعدة للسوق السعودي، أرغب في مناقشة إمكانية الاستثمار المبكر
+      responses:
+        "201":
+          description: أُرسل الطلب / Sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InterestResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: المشروع غير متاح / Project unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: PROJECT_NOT_AVAILABLE, message: عذراً، هذا المشروع غير متاح حالياً }
+        "409":
+          description: طلب مكرر / Duplicate interest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: INTEREST_ALREADY_EXISTS, message: سبق إرسال طلب لهذا المشروع }
+        "422":
+          description: ملف ناقص أو تحقق فاشل / Incomplete profile or validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                profile: { summary: ملف ناقص, value: { code: PROFILE_INCOMPLETE, message: يرجى إكمال ملفك الشخصي أولاً } }
+                validation: { summary: تحقق فاشل, value: { code: VALIDATION_ERROR, message: البيانات المدخلة غير صحيحة } }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /interests/received:
+    get:
+      tags: [Interest]
+      summary: الطلبات الواردة / Received interests (SRS-API-23)
+      description: |
+        طلبات الاهتمام على مشاريع صاحب الفكرة — مرتبة زمنياً مع فلترة بالحالة.
+        Rate Limit: shared.read — 30/دقيقة.
+      operationId: receivedInterests
+      x-srs-api: SRS-API-23
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - name: status
+          in: query
+          description: فلترة بالحالة / Filter by status
+          schema: { $ref: "#/components/schemas/InterestStatus" }
+        - name: project_id
+          in: query
+          description: فلترة بمشروع محدد / Filter by project
+          schema: { type: integer }
+      responses:
+        "200":
+          description: الطلبات الواردة / Received list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InterestReceivedList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /interests/sent:
+    get:
+      tags: [Interest]
+      summary: الطلبات المرسلة / Sent interests (SRS-API-24)
+      description: |
+        طلبات المستثمر المرسلة مع حالتها وسبب الرفض عند وجوده.
+        Rate Limit: shared.read — 60/دقيقة.
+      operationId: sentInterests
+      x-srs-api: SRS-API-24
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - name: status
+          in: query
+          description: فلترة بالحالة / Filter by status
+          schema: { $ref: "#/components/schemas/InterestStatus" }
+      responses:
+        "200":
+          description: الطلبات المرسلة / Sent list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InterestSentList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /interests/{interest}/accept:
+    put:
+      tags: [Interest]
+      summary: قبول طلب الاهتمام / Accept interest (SRS-API-25)
+      description: |
+        قبول طلب — لصاحب المشروع فقط. ينشئ مستند اتفاق PDF بأسماء الطرفين (خلال < 5 ثوانٍ)،
+        يكشف البريد الإلكتروني للطرفين، ويمنح المستثمر مستوى إفصاح 3.
+        Rate Limit: shared.write — 10/دقيقة.
+      operationId: acceptInterest
+      x-srs-api: SRS-API-25
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: interest
+          in: path
+          required: true
+          description: معرّف طلب الاهتمام / Interest ID
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: قُبل الطلب وأنشئ المستند / Accepted — agreement created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AcceptInterestResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: الطلب ليس معلقاً أو ملغي / Not pending or cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                not_pending: { summary: ليس معلقاً, value: { code: INTEREST_NOT_PENDING, message: لا يمكن معالجة طلب غير معلق } }
+                cancelled: { summary: ملغي, value: { code: INTEREST_CANCELLED, message: عذراً، تم إلغاء هذا الطلب من قبل المستثمر } }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /interests/{interest}/reject:
+    put:
+      tags: [Interest]
+      summary: رفض طلب الاهتمام / Reject interest (SRS-API-26)
+      description: |
+        رفض طلب مع سبب اختياري — لصاحب المشروع فقط. يرسل إشعاراً للمستثمر.
+        Rate Limit: shared.write — 10/دقيقة.
+      operationId: rejectInterest
+      x-srs-api: SRS-API-26
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: interest
+          in: path
+          required: true
+          description: معرّف طلب الاهتمام / Interest ID
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejection_reason:
+                  type: string
+                  maxLength: 500
+                  description: سبب الرفض (اختياري) / Optional rejection reason
+            example: { rejection_reason: نعتذر، نفضل تأجيل التعاون حالياً }
+      responses:
+        "200":
+          description: رُفض الطلب / Rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RejectInterestResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterestConflict"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /agreements/{agreement}:
+    get:
+      tags: [Interest]
+      summary: مستند الاتفاق PDF / Agreement document (SRS-API-27)
+      description: |
+        تحميل مستند الاتفاق الثابت (اسم صاحب الفكرة + اسم المستثمر) — للطرفين فقط.
+        لا توقيع إلكتروني ولا NDA (BR-05). Rate Limit: shared.read — 10/دقيقة.
+      operationId: showAgreement
+      x-srs-api: SRS-API-27
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: agreement
+          in: path
+          required: true
+          description: معرّف الاتفاق / Agreement ID
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: ملف PDF / PDF file
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: attachment; filename="agreement-21.pdf"
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: المستند لم يُنشأ بعد / Document not ready (UC-07 E1)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: AGREEMENT_NOT_READY, message: سيتم توفير مستند الاتفاق قريباً }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # NOTIFICATIONS — SRS-API-28..31
+  # ============================================================
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: قائمة الإشعارات / List notifications (SRS-API-28)
+      description: |
+        إشعارات المستخدم — `limit` للجرس (5) أو ترقيم للصفحة الكاملة (20/صفحة).
+        Rate Limit: shared.read — 30/دقيقة.
+      operationId: listNotifications
+      x-srs-api: SRS-API-28
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          description: حد للجرس المنسدل / Dropdown limit
+          schema: { type: integer, minimum: 1, maximum: 50 }
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: القائمة مع عدد غير المقروء / List with unread count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /notifications/{notification}/read:
+    put:
+      tags: [Notifications]
+      summary: تعيين إشعار كمقروء / Mark notification read (SRS-API-29)
+      description: |
+        تعيين إشعار واحد كمقروء — لصاحب الإشعار فقط.
+        Rate Limit: shared.read — 30/دقيقة.
+      operationId: markNotificationRead
+      x-srs-api: SRS-API-29
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notification
+          in: path
+          required: true
+          description: معرّف الإشعار / Notification ID
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: حُدد كمقروء / Marked read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationReadResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: تعيين الكل كمقروء / Mark all read (SRS-API-30)
+      description: "Rate Limit: shared.write — 10/دقيقة."
+      operationId: markAllNotificationsRead
+      x-srs-api: SRS-API-30
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: حُدد الكل كمقروء / All marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, updated_count]
+                properties:
+                  message: { type: string }
+                  updated_count: { type: integer, description: عدد الإشعارات المحدثة / Updated count }
+              example: { message: تم تعيين جميع الإشعارات كمقروءة, updated_count: 3 }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: عدد غير المقروء / Unread count (SRS-API-31)
+      description: |
+        عدد الإشعارات غير المقروءة لشارة الجرس — يُحدَّث عبر WebSocket للأحداث الحرجة.
+        Rate Limit: shared.read — 30/دقيقة.
+      operationId: unreadNotificationsCount
+      x-srs-api: SRS-API-31
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: العدد / Count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties:
+                  count: { type: integer, minimum: 0 }
+              example: { count: 3 }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # DASHBOARD — SRS-API-32..39
+  # ============================================================
+  /saved-projects:
+    get:
+      tags: [Dashboard]
+      summary: المشاريع المحفوظة / Saved projects (SRS-API-32)
+      description: |
+        قائمة المشاريع المحفوظة للمستثمر. Rate Limit: shared.read — 60/دقيقة.
+      operationId: savedProjects
+      x-srs-api: SRS-API-32
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: القائمة / List
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedProjectsList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /projects/{project}/save:
+    post:
+      tags: [Dashboard]
+      summary: حفظ مشروع / Save project (SRS-API-33)
+      description: |
+        حفظ مشروع في قائمة المستثمر — Idempotent (يعيد already_saved عند التكرار).
+        Rate Limit: investor.write — 10/دقيقة.
+      operationId: saveProject
+      x-srs-api: SRS-API-33
+      x-rate-limit: "10/دقيقة · user_id · L4-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: حُفظ / Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveProjectResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ProjectUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+    delete:
+      tags: [Dashboard]
+      summary: إزالة من المحفوظات / Unsave project (SRS-API-34)
+      description: "Rate Limit: investor.write — 10/دقيقة."
+      operationId: unsaveProject
+      x-srs-api: SRS-API-34
+      x-rate-limit: "10/دقيقة · user_id · L4-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: أُزيل / Removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveProjectResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /trashed-projects:
+    get:
+      tags: [Dashboard]
+      summary: سلة المهملات / Trashed projects (SRS-API-35)
+      description: |
+        مشاريع صاحب الفكرة المحذوفة مع عدّاد الأيام المتبقية للحذف النهائي (30 يوماً).
+        Rate Limit: shared.read — 20/دقيقة.
+      operationId: trashedProjects
+      x-srs-api: SRS-API-35
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: القائمة / List
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrashedProjectsList" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /trashed-projects/{project}/restore:
+    post:
+      tags: [Dashboard]
+      summary: استرجاع مشروع / Restore project (SRS-API-36)
+      description: |
+        استرجاع مشروع محذوف خلال 30 يوماً — للمالك. Rate Limit: shared.write — 10/دقيقة.
+      operationId: restoreProject
+      x-srs-api: SRS-API-36
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: استُرجع / Restored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RestoreProjectResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: غير موجود أو انتهت المهلة / Not found or past 30 days
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: NOT_FOUND, message: انتهت مهلة الاسترجاع (30 يوماً) }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /trashed-projects/{project}/force:
+    delete:
+      tags: [Dashboard]
+      summary: حذف نهائي / Force delete (SRS-API-37)
+      description: |
+        حذف نهائي قبل انتهاء الـ 30 يوماً — للمالك. لا يمكن التراجع.
+        Rate Limit: shared.write — 10/دقيقة.
+      operationId: forceDeleteProject
+      x-srs-api: SRS-API-37
+      x-rate-limit: "10/دقيقة · user_id · L3-W"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      responses:
+        "200":
+          description: حُذف نهائياً / Permanently deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+              example: { message: تم حذف المشروع نهائياً (لا يمكن التراجع) }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /dashboard/idea-owner:
+    get:
+      tags: [Dashboard]
+      summary: لوحة صاحب الفكرة / Idea owner dashboard (SRS-API-38)
+      description: |
+        مؤشرات الأداء، بطاقات المشاريع، تغذية آخر 10 أحداث (20/صفحة للكل)، وعدد السلة.
+        Rate Limit: dashboard — 20/دقيقة.
+      operationId: ideaOwnerDashboard
+      x-srs-api: SRS-API-38
+      x-rate-limit: "20/دقيقة · user_id · L3"
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: بيانات اللوحة / Dashboard data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IdeaOwnerDashboard" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /dashboard/investor:
+    get:
+      tags: [Dashboard]
+      summary: لوحة المستثمر / Investor dashboard (SRS-API-39)
+      description: |
+        مشاريع مقترحة حسب المجال الاستثماري (حتى 10)، مؤشرات، طلباته، محفوظاته، وتغذية التحديثات.
+        Rate Limit: dashboard — 20/دقيقة.
+      operationId: investorDashboard
+      x-srs-api: SRS-API-39
+      x-rate-limit: "20/دقيقة · user_id · L4"
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: بيانات اللوحة / Dashboard data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvestorDashboard" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # ADMIN — SRS-API-40..41
+  # ============================================================
+  /admin/analytics:
+    get:
+      tags: [Admin]
+      summary: لوحة تحليلات المشرف / Admin analytics (SRS-API-40)
+      description: |
+        إحصائيات المستخدمين (حسب الدور)، المشاريع (حسب الحالة والمجال)، متوسط التقييم،
+        المستخدمون النشطون (آخر 7 أيام)، وطلبات الاهتمام حسب الحالة — بيانات لحظة تحميل الصفحة.
+        Rate Limit: admin.read — 60/دقيقة.
+      operationId: adminAnalytics
+      x-srs-api: SRS-API-40
+      x-rate-limit: "60/دقيقة · user_id · L6"
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: بيانات التحليلات / Analytics data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAnalytics" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /admin/analytics/export:
+    get:
+      tags: [Admin]
+      summary: تصدير التحليلات CSV / Export analytics CSV (SRS-API-41)
+      description: |
+        تصدير الإحصائيات بتنسيق CSV قياسي — للمشرف فقط.
+        Rate Limit: admin.export — 10/دقيقة.
+      operationId: exportAdminAnalytics
+      x-srs-api: SRS-API-41
+      x-rate-limit: "10/دقيقة · user_id · L6"
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: ملف CSV / CSV file
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: attachment; filename="ihyaa-analytics-2026-08-02.csv"
+          content:
+            text/csv:
+              schema: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  # ============================================================
+  # AI AGENT — SRS-API-42..43
+  # ============================================================
+  /ai/analyze/{project}:
+    post:
+      tags: [AI Agent]
+      summary: طلب تحليل متقدم / Request analysis (SRS-API-42)
+      description: |
+        تحليل تنافسي/SWOT/سوقي/مقارنة عبر وكيل AI — للمالك، بشرط وجود تقييم مكتمل واحد على الأقل.
+        معالجة غير متزامنة (نصوص وقوالب فقط — لا MCP خارجي).
+        Rate Limit: ai.analyze — 3/دقيقة لكل (user+project).
+      operationId: analyzeProject
+      x-srs-api: SRS-API-42
+      x-rate-limit: "3/دقيقة · user_id+project_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProjectPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [analysis_type]
+              properties:
+                analysis_type: { $ref: "#/components/schemas/AnalysisType" }
+            example: { analysis_type: swot }
+      responses:
+        "202":
+          description: بدأ التحليل / Analysis started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalysisStartedResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: تحليل قيد المعالجة / Analysis in progress (UC-13 E2)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: ANALYSIS_IN_PROGRESS, message: لا يزال التحليل قيد المعالجة }
+        "422":
+          description: تقييم مكتمل مطلوب / Completed evaluation required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: EVALUATION_REQUIRED, message: يتطلب المشروع تقييماً مكتملاً واحداً على الأقل قبل التحليل }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /ai/analysis/{artifact}:
+    get:
+      tags: [AI Agent]
+      summary: عرض تقرير التحليل / Show analysis report (SRS-API-43)
+      description: |
+        عرض مخرجات التحليل المحفوظة (SWOT/تنافسي/سوقي/مقارنة) — للمالك.
+        Rate Limit: ai.report — 10/دقيقة.
+      operationId: showAnalysis
+      x-srs-api: SRS-API-43
+      x-rate-limit: "10/دقيقة · user_id · L5"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: artifact
+          in: path
+          required: true
+          description: معرّف مخرجات التحليل / Artifact ID
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: التقرير / Report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalysisResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: قيد المعالجة / In progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example: { code: ANALYSIS_IN_PROGRESS, message: لا يزال التحليل قيد المعالجة }
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+# ============================================================
+# COMPONENTS
+# ============================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
+      description: توكن Sanctum صالح 24 ساعة — يحصل عليه من /login أو /email/verify أو OAuth callback
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: رقم الصفحة / Page number
+      schema: { type: integer, minimum: 1, default: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      description: حجم الصفحة / Page size (افتراضي 12، أقصى 50)
+      schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+    ProjectPath:
+      name: project
+      in: path
+      required: true
+      description: معرّف المشروع / Project ID
+      schema: { type: integer, format: int64 }
+    EvaluationPath:
+      name: evaluation
+      in: path
+      required: true
+      description: معرّف التقييم / Evaluation ID
+      schema: { type: integer, format: int64 }
+    ProviderPath:
+      name: provider
+      in: path
+      required: true
+      description: مزود الهوية / Identity provider
+      schema: { type: string, enum: [google, github, linkedin] }
+
+  responses:
+    Unauthenticated:
+      description: توكن مفقود أو منتهي / Missing or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          example: { code: UNAUTHENTICATED, message: يجب تسجيل الدخول للوصول إلى هذا المورد }
+    Forbidden:
+      description: لا صلاحية — دور أو ملكية أو إفصاح / Forbidden — role, ownership or disclosure
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          example: { code: FORBIDDEN, message: ليس لديك صلاحية الوصول إلى هذه الصفحة }
+    NotFound:
+      description: المورد غير موجود / Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          example: { code: NOT_FOUND, message: المورد المطلوب غير موجود }
+    ProjectUnavailable:
+      description: المشروع محذوف أو غير منشور / Project deleted or unpublished
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          example: { code: PROJECT_NOT_AVAILABLE, message: عذراً، هذا المشروع غير متاح حالياً }
+    ValidationError:
+      description: فشل التحقق من صحة البيانات / Validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ValidationError" }
+          example:
+            code: VALIDATION_ERROR
+            message: البيانات المدخلة غير صحيحة
+            errors:
+              description: [ يجب أن يتراوح طول الوصف بين 50 و2000 حرف ]
+    RateLimitError:
+      description: تجاوز معدل الطلبات — مع رؤوس X-RateLimit-* وRetry-After / Rate limit exceeded
+      headers:
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+        X-RateLimit-Reset: { schema: { type: integer } }
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RateLimitError" }
+    InterestConflict:
+      description: تعارض في حالة الطلب / Interest state conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          examples:
+            not_pending: { summary: ليس معلقاً, value: { code: INTEREST_NOT_PENDING, message: لا يمكن معالجة طلب غير معلق } }
+            cancelled: { summary: ملغي, value: { code: INTEREST_CANCELLED, message: عذراً، تم إلغاء هذا الطلب من قبل المستثمر } }
+    InternalError:
+      description: خطأ خادم / Internal server error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+          example: { code: INTERNAL_ERROR, message: حدث خطأ غير متوقع. يرجى المحاولة لاحقاً }
+
+  schemas:
+    # ---------------- Enums ----------------
+    UserRole:
+      type: string
+      enum: [idea_owner, investor, admin]
+      description: دور المستخدم — admin عبر seeder فقط / Role — admin via seeder only
+    ProjectStatus:
+      type: string
+      enum: [draft, published, archived]
+      description: حالة النشر / Publication state (enums.md §1.2)
+    ProjectState:
+      type: string
+      enum: [completed, needs_development, needs_funding]
+      description: حالة المشروع التجارية / Lifecycle state (enums.md §1.3)
+    VisibilityLevel:
+      type: integer
+      enum: [1, 2, 3]
+      description: "مستوى الإفصاح — 1: زائر (الدرجة فقط) · 2: مسجل (أبعاد+رادار) · 3: مالك/بعد الاتفاق (كل شيء) / Disclosure level"
+    InterestStatus:
+      type: string
+      enum: [pending, accepted, rejected, cancelled]
+      description: حالة طلب الاهتمام / Interest status
+    InterestType:
+      type: string
+      enum: [investment, technical_development, consultation]
+      description: نوع الاهتمام / Interest type
+    EvaluationStatus:
+      type: string
+      enum: [processing, completed, failed, partial]
+      description: حالة تقييم AI / Evaluation status
+    FileType:
+      type: string
+      enum: [image, pdf, document]
+      description: نوع ملف المشروع / Project file type
+    VideoProvider:
+      type: string
+      enum: [youtube, vimeo]
+      description: مزود الفيديو / Video provider
+    AnalysisType:
+      type: string
+      enum: [competitive, swot, market, comparison]
+      description: نوع تحليل وكيل AI / AI agent analysis type
+    ModelUsed:
+      type: string
+      enum: [openai, claude]
+      description: المزود الذي أجرى التقييم فعلياً / Provider that ran the evaluation
+
+    # ---------------- Common ----------------
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: رمز الخطأ الآلي / Machine-readable code }
+        message: { type: string, description: رسالة مترجمة / Localized message }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+          description: تفاصيل تحقق لكل حقل / Per-field validation details
+    ValidationError:
+      allOf:
+        - { $ref: "#/components/schemas/ApiError" }
+      required: [code, errors]
+      properties:
+        code: { type: string, const: VALIDATION_ERROR }
+    RateLimitError:
+      type: object
+      required: [code, message, retry_after, reset_at]
+      properties:
+        code: { type: string, const: RATE_LIMIT_EXCEEDED }
+        message: { type: string }
+        retry_after: { type: integer, description: ثوانٍ حتى المحاولة التالية / Seconds until retry }
+        reset_at: { type: integer, description: Unix timestamp لإعادة التعيين / Reset timestamp }
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    PaginationMeta:
+      type: object
+      required: [current_page, per_page, total, last_page]
+      properties:
+        current_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        last_page: { type: integer }
+        from: { type: [integer, "null"] }
+        to: { type: [integer, "null"] }
+    HealthStatus:
+      type: object
+      required: [status, services, timestamp]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        services:
+          type: object
+          additionalProperties: { type: string, enum: [up, down] }
+        timestamp: { type: string, format: date-time }
+    Readiness:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ready, maintenance] }
+
+    # ---------------- Auth ----------------
+    RegisterRequest:
+      type: object
+      required: [name, email, password, password_confirmation, role]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120, description: الاسم الكامل / Full name }
+        email: { type: string, format: email, description: بريد فريد / Unique email }
+        password: { type: string, format: password, minLength: 8, description: ≥ 8 أحرف مع حرف كبير ورقم / Min 8 chars with uppercase + digit }
+        password_confirmation: { type: string }
+        role: { type: string, enum: [idea_owner, investor], description: الدور — admin غير متاح / Role — admin not available }
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/UserRole" }
+        avatar_url: { type: [string, "null"], format: uri }
+        email_verified_at: { type: [string, "null"], format: date-time }
+        provider: { type: [string, "null"], enum: [google, github, linkedin] }
+        created_at: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [message, token, user]
+      properties:
+        message: { type: string }
+        token: { type: string, description: توكن Sanctum — 24 ساعة / Sanctum token — 24h }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, description: بالثواني / Seconds }
+        user: { $ref: "#/components/schemas/User" }
+    RegisterResponse:
+      type: object
+      required: [message, user]
+      properties:
+        message: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+    OAuthResponse:
+      type: object
+      required: [message, token, requires_role, user]
+      properties:
+        message: { type: string }
+        token: { type: string }
+        requires_role: { type: boolean, description: true عند أول دخول — يجب اختيار الدور / true on first login — role selection required }
+        user: { $ref: "#/components/schemas/User" }
+    ResetPasswordRequest:
+      type: object
+      required: [email, token, password, password_confirmation]
+      properties:
+        email: { type: string, format: email }
+        token: { type: string, description: رمز إعادة التعيين من البريد — صالح ساعة / Reset token from email — 1h validity }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string }
+
+    # ---------------- Profile ----------------
+    IdeaOwnerProfile:
+      type: object
+      properties:
+        bio: { type: [string, "null"], maxLength: 2000 }
+        avatar_url: { type: [string, "null"], format: uri }
+        skills: { type: array, items: { type: string }, description: مهارات صاحب الفكرة / Owner skills }
+        social_links: { type: object, additionalProperties: { type: string, format: uri } }
+        university: { type: [string, "null"], description: الجامعة / University }
+        major: { type: [string, "null"], description: التخصص / Major }
+    InvestorProfile:
+      type: object
+      properties:
+        bio: { type: [string, "null"], maxLength: 2000 }
+        avatar_url: { type: [string, "null"], format: uri }
+        investment_focus: { type: [string, "null"], description: المجال الاستثماري — إلزامي لإرسال طلبات الاهتمام / Investment focus — required to send interests }
+        investment_range:
+          type: object
+          properties:
+            min: { type: number, description: حد أدنى بالريال/درهم/جنيه / Min amount }
+            max: { type: number, description: حد أقصى / Max amount }
+        preferred_sectors: { type: array, items: { type: string }, description: القطاعات المفضلة / Preferred sectors }
+    ProfileResponse:
+      type: object
+      required: [user, profile]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        profile:
+          oneOf:
+            - { $ref: "#/components/schemas/IdeaOwnerProfile" }
+            - { $ref: "#/components/schemas/InvestorProfile" }
+          description: حقول الملف حسب الدور / Role-based profile fields
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        role: { type: string, enum: [idea_owner, investor], description: مقبول فقط عندما role=null (أول دخول OAuth) / Only when role is null (first OAuth login) }
+        bio: { type: string, maxLength: 2000 }
+        skills: { type: array, items: { type: string }, maxItems: 20 }
+        social_links: { type: object, additionalProperties: { type: string, format: uri } }
+        university: { type: string, maxLength: 120 }
+        major: { type: string, maxLength: 120 }
+        investment_focus: { type: string, maxLength: 120 }
+        investment_range:
+          type: object
+          properties:
+            min: { type: number, minimum: 0 }
+            max: { type: number, minimum: 0 }
+          description: يجب أن يكون min ≤ max / min must be ≤ max
+        preferred_sectors: { type: array, items: { type: string }, maxItems: 20 }
+    PublicProfileResponse:
+      type: object
+      required: [user, public_profile]
+      properties:
+        user:
+          type: object
+          required: [id, name, role]
+          properties:
+            id: { type: integer, format: int64 }
+            name: { type: string }
+            role: { $ref: "#/components/schemas/UserRole" }
+            avatar_url: { type: [string, "null"], format: uri }
+            bio: { type: [string, "null"] }
+            created_at: { type: string, format: date-time }
+        public_profile:
+          type: object
+          description: حقول عامة بدون البريد الإلكتروني / Public fields — no email
+          additionalProperties: true
+
+    # ---------------- Projects ----------------
+    ProjectWriteRequest:
+      type: object
+      # ملاحظة: POST يتطلب title/description/category/project_state — PUT يقبل تحديثاً جزئياً
+      # Note: POST requires title/description/category/project_state — PUT accepts partial updates
+      properties:
+        title: { type: string, minLength: 5, maxLength: 120, description: عنوان المشروع / Title }
+        description: { type: string, minLength: 50, maxLength: 2000, description: وصف المشروع / Description }
+        category: { type: string, description: مجال المشروع / Category }
+        project_state: { $ref: "#/components/schemas/ProjectState" }
+        status: { $ref: "#/components/schemas/ProjectStatus", description: افتراضي published / Defaults to published }
+        tags: { type: array, maxItems: 10, items: { type: string, maxLength: 30 }, description: حتى 10 علامات / Up to 10 tags }
+        github_url: { type: [string, "null"], format: uri }
+        video_url: { type: [string, "null"], format: uri, description: YouTube/Vimeo فقط / YouTube or Vimeo only }
+        video_provider: { $ref: "#/components/schemas/VideoProvider" }
+        budget_min: { type: number, minimum: 0, description: الحد الأدنى للميزانية / Min budget }
+        budget_max: { type: number, minimum: 0, description: الحد الأقصى — يجب ≥ budget_min / Max budget ≥ min }
+        business_info: { type: string, maxLength: 1000, description: نموذج العمل والسوق والمنافسون (مدخلات التقييم) / Business info (evaluation input) }
+    ProjectCard:
+      type: object
+      required: [id, title, category, project_state, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description_excerpt: { type: string, description: مختصر حتى 100 حرف / Excerpt up to 100 chars }
+        category: { type: string }
+        project_state: { $ref: "#/components/schemas/ProjectState" }
+        ai_score: { type: [number, "null"], minimum: 0, maximum: 100, description: التقييم الكلي (يُخفى للزائر حسب الإفصاح — يظهر دائماً في البطاقات) / Overall score }
+        cover_image_url: { type: [string, "null"], format: uri }
+        views_count: { type: integer }
+        created_at: { type: string, format: date-time }
+    ProjectCardList:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/ProjectCard" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+        links:
+          type: object
+          properties:
+            first: { type: [string, "null"] }
+            last: { type: [string, "null"] }
+            prev: { type: [string, "null"] }
+            next: { type: [string, "null"] }
+    ProjectFile:
+      type: object
+      required: [id, type, file_url, mime_type, file_size]
+      properties:
+        id: { type: integer, format: int64 }
+        type: { $ref: "#/components/schemas/FileType" }
+        original_name: { type: string }
+        file_url: { type: string, format: uri }
+        mime_type: { type: string }
+        file_size: { type: integer, description: بالبايت / Bytes }
+    ProjectEvaluationSummary:
+      type: object
+      required: [overall_score, last_evaluation_at]
+      properties:
+        overall_score: { type: [number, "null"], minimum: 0, maximum: 100 }
+        last_evaluation_at: { type: [string, "null"], format: date-time }
+    ProjectDetail:
+      type: object
+      required: [id, title, description, category, project_state, owner]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        project_state: { $ref: "#/components/schemas/ProjectState" }
+        status: { $ref: "#/components/schemas/ProjectStatus" }
+        tags: { type: array, items: { type: string } }
+        github_url: { type: [string, "null"], format: uri }
+        video_url: { type: [string, "null"], format: uri }
+        video_provider: { $ref: "#/components/schemas/VideoProvider" }
+        budget_min: { type: [number, "null"] }
+        budget_max: { type: [number, "null"] }
+        views_count: { type: integer }
+        owner:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: integer, format: int64 }
+            name: { type: string }
+            avatar_url: { type: [string, "null"], format: uri }
+        files: { type: array, items: { $ref: "#/components/schemas/ProjectFile" } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ProjectDetailResponse:
+      type: object
+      required: [visibility_level, project]
+      properties:
+        visibility_level: { $ref: "#/components/schemas/VisibilityLevel" }
+        project: { $ref: "#/components/schemas/ProjectDetail" }
+        evaluation:
+          oneOf:
+            - { $ref: "#/components/schemas/ProjectEvaluationSummary" }
+            - { $ref: "#/components/schemas/Evaluation" }
+          description: يعتمد على مستوى الإفصاح / Depends on disclosure level
+    ProjectCreateResponse:
+      type: object
+      required: [message, project, evaluation]
+      properties:
+        message: { type: string }
+        project: { $ref: "#/components/schemas/ProjectCard" }
+        evaluation:
+          type: object
+          required: [status, eta_seconds]
+          properties:
+            status: { type: string, const: processing }
+            eta_seconds: { type: integer, description: زمن المعالجة المستهدف 120 ثانية (P95) / Target processing time }
+    ProjectUpdateResponse:
+      type: object
+      required: [message, project, significant_changed, re_evaluation_suggested]
+      properties:
+        message: { type: string }
+        project: { $ref: "#/components/schemas/ProjectCard" }
+        significant_changed: { type: boolean, description: تغيّر حقل جوهري / A significant field changed }
+        re_evaluation_suggested: { type: boolean, description: اقتراح إعادة تقييم — دون بدء تلقائي (SRS-F04-02) / Suggest re-evaluation — never automatic }
+    DeleteProjectResponse:
+      type: object
+      required: [message, trashed_until]
+      properties:
+        message: { type: string }
+        trashed_until: { type: string, format: date-time, description: الحذف النهائي بعد 30 يوماً / Permanent deletion after 30 days }
+
+    # ---------------- Files ----------------
+    FileUploadResponse:
+      type: object
+      required: [message, uploaded, rejected]
+      properties:
+        message: { type: string }
+        uploaded: { type: array, items: { $ref: "#/components/schemas/ProjectFile" } }
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [original_name, reason]
+            properties:
+              original_name: { type: string }
+              reason: { type: string, description: رمز سبب الرفض (FILE_TYPE_NOT_ALLOWED/FILE_TOO_LARGE) / Rejection reason code }
+
+    # ---------------- Evaluation ----------------
+    DimensionSubScores:
+      type: object
+      description: الدرجات الفرعية تختلف حسب البعد (SRS-5.4.6.4) / Sub-scores vary per dimension
+      additionalProperties: { type: number, minimum: 0, maximum: 100 }
+    DimensionScore:
+      type: object
+      required: [score]
+      properties:
+        score: { type: number, minimum: 0, maximum: 100 }
+        sub_scores: { $ref: "#/components/schemas/DimensionSubScores" }
+        strengths: { type: array, items: { type: string } }
+        weaknesses: { type: array, items: { type: string } }
+    Evaluation:
+      type: object
+      required: [id, project_id, version, status, overall_score, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: integer, format: int64 }
+        version: { type: integer, description: إصدار متزايد ذاتياً للمقارنة / Self-incrementing version }
+        status: { $ref: "#/components/schemas/EvaluationStatus" }
+        overall_score: { type: [number, "null"], minimum: 0, maximum: 100 }
+        dimensions:
+          type: object
+          description: الأبعاد الخمسة — technical_quality, innovation, market_viability, team_completeness, documentation
+          additionalProperties: { $ref: "#/components/schemas/DimensionScore" }
+        dimensions_scores:
+          type: object
+          description: درجات الأبعاد للمستوى 2 (بدون تفاصيل) / Dimension scores for level 2
+          additionalProperties: { type: number, minimum: 0, maximum: 100 }
+        radar_data:
+          type: object
+          properties:
+            labels: { type: array, items: { type: string } }
+            values: { type: array, items: { type: number } }
+        gap_analysis:
+          type: object
+          properties:
+            technical_gaps: { type: array, items: { type: string } }
+            market_gaps: { type: array, items: { type: string } }
+            team_gaps: { type: array, items: { type: string } }
+            documentation_gaps: { type: array, items: { type: string } }
+        recommendations:
+          type: object
+          properties:
+            immediate: { type: array, items: { type: string } }
+            short_term: { type: array, items: { type: string } }
+            long_term: { type: array, items: { type: string } }
+        required_skills: { type: array, items: { type: string } }
+        confidence_score: { type: [number, "null"], minimum: 0, maximum: 1 }
+        warnings: { type: array, items: { type: string } }
+        model_used: { $ref: "#/components/schemas/ModelUsed" }
+        processing_time_ms: { type: [integer, "null"] }
+        created_at: { type: string, format: date-time }
+    EvaluationList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/Evaluation" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+    EvaluationStartedResponse:
+      type: object
+      required: [message, evaluation, eta_seconds]
+      properties:
+        message: { type: string }
+        evaluation:
+          type: object
+          required: [id, status]
+          properties:
+            id: { type: integer, format: int64 }
+            status: { type: string, const: processing }
+            version: { type: integer, description: يُرجع في إعادة التقييم فقط / Returned on re-evaluation }
+        eta_seconds: { type: integer }
+    EvaluationCachedResponse:
+      type: object
+      required: [message, evaluation, cached, next_evaluation_at]
+      properties:
+        message: { type: string }
+        evaluation:
+          type: object
+          required: [id, status]
+          properties:
+            id: { type: integer, format: int64 }
+            status: { type: string, const: completed }
+            overall_score: { type: number }
+        cached: { type: boolean, const: true }
+        next_evaluation_at: { type: string, format: date-time }
+    EvaluationRateLimitedResponse:
+      type: object
+      required: [code, message, last_evaluation_at, next_evaluation_at]
+      properties:
+        code: { type: string, const: EVALUATION_RATE_LIMITED }
+        message: { type: string }
+        last_evaluation_at: { type: string, format: date-time }
+        next_evaluation_at: { type: string, format: date-time }
+    EvaluationStatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: "#/components/schemas/EvaluationStatus" }
+        evaluation_id: { type: [integer, "null"], format: int64 }
+        overall_score: { type: [number, "null"] }
+        message: { type: [string, "null"], description: رسالة الحالة (processing/failed) / Status message }
+        started_at: { type: [string, "null"], format: date-time }
+        eta_seconds: { type: [integer, "null"] }
+        last_evaluation_at: { type: [string, "null"], format: date-time }
+        next_evaluation_at: { type: [string, "null"], format: date-time }
+
+    # ---------------- Search ----------------
+    SearchFacets:
+      type: object
+      properties:
+        categories: { type: object, additionalProperties: { type: integer } }
+        project_states: { type: object, additionalProperties: { type: integer } }
+        score_ranges: { type: object, additionalProperties: { type: integer } }
+    SearchResponse:
+      type: object
+      required: [data, meta, facets, query]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/ProjectCard" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+        facets: { $ref: "#/components/schemas/SearchFacets" }
+        query: { type: object, description: معايير البحث الحالية للمشاركة عبر الرابط / Active criteria for permalinks }
+    Suggestion:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [project, tag] }
+        id: { type: [integer, "null"] }
+        title: { type: [string, "null"] }
+        value: { type: [string, "null"], description: قيمة العلامة / Tag value }
+
+    # ---------------- Interest & Agreement ----------------
+    InterestRequest:
+      type: object
+      required: [interest_type]
+      properties:
+        interest_type: { $ref: "#/components/schemas/InterestType" }
+        message: { type: string, maxLength: 500, description: رسالة اختيارية / Optional message }
+    Interest:
+      type: object
+      required: [id, project_id, interest_type, status, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: integer, format: int64 }
+        project_title: { type: string }
+        interest_type: { $ref: "#/components/schemas/InterestType" }
+        message: { type: [string, "null"] }
+        status: { $ref: "#/components/schemas/InterestStatus" }
+        rejection_reason: { type: [string, "null"] }
+        agreement_id: { type: [integer, "null"], format: int64 }
+        created_at: { type: string, format: date-time }
+    InterestResponse:
+      type: object
+      required: [message, interest]
+      properties:
+        message: { type: string }
+        interest: { $ref: "#/components/schemas/Interest" }
+    InterestReceived:
+      allOf:
+        - { $ref: "#/components/schemas/Interest" }
+        - type: object
+          properties:
+            investor:
+              type: object
+              required: [id, name]
+              properties:
+                id: { type: integer, format: int64 }
+                name: { type: string }
+                avatar_url: { type: [string, "null"], format: uri }
+    InterestReceivedList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/InterestReceived" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+    InterestSent:
+      allOf:
+        - { $ref: "#/components/schemas/Interest" }
+        - type: object
+          properties:
+            project_ai_score: { type: [number, "null"] }
+    InterestSentList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/InterestSent" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+    AcceptInterestResponse:
+      type: object
+      required: [message, interest, agreement]
+      properties:
+        message: { type: string }
+        interest:
+          type: object
+          required: [id, status, accepted_at]
+          properties:
+            id: { type: integer, format: int64 }
+            status: { type: string, const: accepted }
+            accepted_at: { type: string, format: date-time }
+        agreement:
+          type: object
+          required: [id, pdf_url]
+          properties:
+            id: { type: integer, format: int64 }
+            pdf_url: { type: string, description: رابط تحميل المستند / Document download link }
+            idea_owner: { type: object, required: [name, email], properties: { name: { type: string }, email: { type: string, format: email } } }
+            investor: { type: object, required: [name, email], properties: { name: { type: string }, email: { type: string, format: email } } }
+    RejectInterestResponse:
+      type: object
+      required: [message, interest]
+      properties:
+        message: { type: string }
+        interest:
+          type: object
+          required: [id, status, rejected_at]
+          properties:
+            id: { type: integer, format: int64 }
+            status: { type: string, const: rejected }
+            rejected_at: { type: string, format: date-time }
+
+    # ---------------- Notifications ----------------
+    Notification:
+      type: object
+      required: [id, type, title, body, is_critical, read_at, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, description: interest.created · evaluation.completed · interest.accepted · interest.rejected · evaluation.retry · project.updated · analysis.completed }
+        title: { type: string }
+        body: { type: string }
+        data: { type: [object, "null"], description: "بيانات سياقية (interest_id, project_id...) / Contextual data" }
+        is_critical: { type: boolean, description: يُرسل عبر WebSocket / Pushed via WebSocket }
+        read_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+    NotificationList:
+      type: object
+      required: [data, meta, unread_count]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/Notification" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+        unread_count: { type: integer }
+    NotificationReadResponse:
+      type: object
+      required: [message, notification]
+      properties:
+        message: { type: string }
+        notification:
+          type: object
+          required: [id, read_at]
+          properties:
+            id: { type: integer, format: int64 }
+            read_at: { type: string, format: date-time }
+
+    # ---------------- Dashboard ----------------
+    SavedProject:
+      type: object
+      required: [project, saved_at]
+      properties:
+        project: { $ref: "#/components/schemas/ProjectCard" }
+        saved_at: { type: string, format: date-time }
+    SavedProjectsList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/SavedProject" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+    SaveProjectResponse:
+      type: object
+      required: [message, saved]
+      properties:
+        message: { type: string }
+        saved: { type: boolean }
+        already_saved: { type: boolean, description: كان محفوظاً مسبقاً / Was already saved }
+    TrashedProject:
+      type: object
+      required: [id, title, category, project_state, deleted_at, auto_delete_at, days_remaining]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        category: { type: string }
+        project_state: { $ref: "#/components/schemas/ProjectState" }
+        ai_score: { type: [number, "null"] }
+        deleted_at: { type: string, format: date-time }
+        auto_delete_at: { type: string, format: date-time, description: بعد 30 يوماً من الحذف / 30 days after deletion }
+        days_remaining: { type: integer, description: الأيام المتبقية للاسترجاع / Days left to restore }
+    TrashedProjectsList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/TrashedProject" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
+    RestoreProjectResponse:
+      type: object
+      required: [message, project]
+      properties:
+        message: { type: string }
+        project: { $ref: "#/components/schemas/ProjectCard" }
+    DashboardActivity:
+      type: object
+      required: [type, title, created_at]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        created_at: { type: string, format: date-time }
+    IdeaOwnerStats:
+      type: object
+      required: [total_projects, average_score, total_interests, accepted_interests, pending_interests, trash_count]
+      properties:
+        total_projects: { type: integer }
+        average_score: { type: [number, "null"] }
+        total_interests: { type: integer }
+        accepted_interests: { type: integer }
+        pending_interests: { type: integer }
+        trash_count: { type: integer }
+    IdeaOwnerDashboard:
+      type: object
+      required: [stats, projects, activities, quick_actions]
+      properties:
+        stats: { $ref: "#/components/schemas/IdeaOwnerStats" }
+        projects: { type: array, items: { $ref: "#/components/schemas/ProjectCard" } }
+        activities:
+          type: object
+          required: [data, meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/DashboardActivity" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+        quick_actions:
+          type: array
+          items: { type: string, enum: [add_project, view_projects, manage_interests] }
+    InvestorStats:
+      type: object
+      required: [sent_interests, accepted_interests, pending_interests, rejected_interests, saved_projects]
+      properties:
+        sent_interests: { type: integer }
+        accepted_interests: { type: integer }
+        pending_interests: { type: integer }
+        rejected_interests: { type: integer }
+        saved_projects: { type: integer }
+    InvestorDashboard:
+      type: object
+      required: [stats, recommendations, sent_interests, saved_projects, feed]
+      properties:
+        stats: { $ref: "#/components/schemas/InvestorStats" }
+        recommendations:
+          type: array
+          maxItems: 10
+          description: حسب المجال الاستثماري المسجل / Based on registered investment focus
+          items: { $ref: "#/components/schemas/ProjectCard" }
+        sent_interests: { type: array, items: { $ref: "#/components/schemas/InterestSent" } }
+        saved_projects: { type: array, items: { $ref: "#/components/schemas/SavedProject" } }
+        feed: { type: array, items: { $ref: "#/components/schemas/DashboardActivity" } }
+
+    # ---------------- Admin ----------------
+    AdminAnalytics:
+      type: object
+      required: [users, projects, evaluations, interests, generated_at]
+      properties:
+        users:
+          type: object
+          required: [total, by_role, active_last_7_days]
+          properties:
+            total: { type: integer }
+            by_role:
+              type: object
+              required: [idea_owner, investor, admin]
+              properties:
+                idea_owner: { type: integer }
+                investor: { type: integer }
+                admin: { type: integer }
+            active_last_7_days:
+              type: array
+              items:
+                type: object
+                required: [date, count]
+                properties:
+                  date: { type: string, format: date }
+                  count: { type: integer }
+        projects:
+          type: object
+          required: [total, by_status, by_category]
+          properties:
+            total: { type: integer }
+            by_status: { type: object, additionalProperties: { type: integer } }
+            by_category: { type: object, additionalProperties: { type: integer } }
+        evaluations:
+          type: object
+          required: [total, average_score, success_rate]
+          properties:
+            total: { type: integer }
+            average_score: { type: number }
+            success_rate: { type: number, minimum: 0, maximum: 1 }
+        interests:
+          type: object
+          required: [total, by_status]
+          properties:
+            total: { type: integer }
+            by_status: { type: object, additionalProperties: { type: integer } }
+        generated_at: { type: string, format: date-time }
+
+    # ---------------- AI Agent ----------------
+    AnalysisStartedResponse:
+      type: object
+      required: [message, artifact]
+      properties:
+        message: { type: string }
+        artifact:
+          type: object
+          required: [id, project_id, analysis_type, status]
+          properties:
+            id: { type: integer, format: int64 }
+            project_id: { type: integer, format: int64 }
+            analysis_type: { $ref: "#/components/schemas/AnalysisType" }
+            status: { type: string, const: processing }
+    AnalysisResponse:
+      type: object
+      required: [artifact]
+      properties:
+        artifact:
+          type: object
+          required: [id, project_id, analysis_type, version, status, artifact_data, created_at]
+          properties:
+            id: { type: integer, format: int64 }
+            project_id: { type: integer, format: int64 }
+            analysis_type: { $ref: "#/components/schemas/AnalysisType" }
+            version: { type: integer }
+            status: { type: string, enum: [processing, completed] }
+            artifact_data:
+              type: object
+              description: "مخرجات نصية وقوالب فقط — بنية حسب النوع (SWOT: strengths/weaknesses/opportunities/threats/recommendations) / Text & template outputs only"
+              additionalProperties: true
+            created_at: { type: string, format: date-time }

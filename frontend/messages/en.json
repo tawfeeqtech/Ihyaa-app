@@ -1,0 +1,507 @@
+{
+  "common": {
+    "appName": "Ihyaa",
+    "appTagline": "An AI marketplace that evaluates your project, diagnoses its gaps, and connects you with the right investors",
+    "demoNote": "Demo mode — local mock data only",
+    "loggedOut": "Signed out successfully",
+    "guest": "Guest"
+  },
+  "nav": {
+    "explore": "Explore projects",
+    "howItWorks": "How it works",
+    "about": "About",
+    "mainNavigation": "Main navigation",
+    "login": "Sign in",
+    "getStarted": "Get started",
+    "dashboard": "Dashboard",
+    "logout": "Sign out",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "footer": {
+    "aboutDescription": "A marketplace connecting idea owners with investors through AI evaluation across five dimensions and practical gap analysis.",
+    "quickLinks": "Quick links",
+    "projects": "Projects",
+    "forInvestors": "For investors",
+    "howItWorks": "How it works",
+    "faq": "FAQ",
+    "legal": "Legal",
+    "terms": "Terms of service",
+    "privacy": "Privacy policy",
+    "agreement": "PDF agreement",
+    "contact": "Contact",
+    "contactDescription": "Have a question? Our team is here to help.",
+    "copyright": "Ihyaa. All rights reserved."
+  },
+  "sidebar": {
+    "navigation": "Navigation",
+    "overview": "Overview",
+    "newProject": "New project",
+    "exploreProjects": "Explore projects",
+    "profile": "Profile",
+    "logout": "Sign out",
+    "roleOwner": "Idea owner",
+    "roleInvestor": "Investor",
+    "betaLabel": "Beta — MVP",
+    "guest": "Guest",
+    "mobileNavigation": "Quick navigation"
+  },
+  "auth": {
+    "layoutNote": "By continuing you agree to our Terms of Service and Privacy Policy",
+    "visualTitle": "Your ideas deserve a chance, and your project deserves a fair evaluation",
+    "visualSubtitle": "Join the Ihyaa community and turn your idea into a funded project",
+    "visualPoints": {
+      "1": "Smart five-dimension evaluation in under 2 minutes",
+      "2": "A gap report with actionable recommendations",
+      "3": "Direct connections with interested investors"
+    },
+    "stats": {
+      "projects": "Projects",
+      "investors": "Investors",
+      "deals": "Successful deals"
+    },
+    "visualCta": "Create your free account",
+    "oauthDemoTitle": "Continue with {provider}",
+    "oauthDemoDescription": "OAuth providers will be wired once the Laravel backend is connected",
+    "providers": {
+      "google": "Google",
+      "github": "GitHub",
+      "linkedin": "LinkedIn"
+    },
+    "continueWith": "Continue with {provider}",
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Sign in to continue with your projects and interests",
+    "email": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "rememberMe": "Remember me",
+    "loginButton": "Sign in",
+    "or": "or",
+    "noAccount": "No account yet?",
+    "createAccount": "Create one",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "loginSuccess": "Signed in successfully",
+    "registerTitle": "Create your account",
+    "registerSubtitle": "Pick your role and start your journey with Ihyaa",
+    "chooseRole": "Choose your role",
+    "roleOwner": "Idea owner",
+    "roleOwnerDesc": "I have a tech project and want it evaluated and shown to investors",
+    "roleInvestor": "Investor",
+    "roleInvestorDesc": "I am looking for innovative early-stage projects to invest in",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "e.g. Khalid Alotaibi",
+    "termsPrefix": "I agree to the",
+    "termsLink": "Terms of Service",
+    "createAccountButton": "Create account",
+    "noEmailNeeded": "No annoying confirmation emails — just your email and password",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Sign in",
+    "registerSuccess": "Account created — welcome to Ihyaa!",
+    "strength": {
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "errors": {
+      "shortName": "Please enter a name with at least 2 characters",
+      "invalidEmail": "Please enter a valid email address",
+      "shortPassword": "Password must be at least 6 characters",
+      "termsRequired": "You must accept the Terms of Service to continue",
+      "otpIncomplete": "Please enter the 6-digit code"
+    },
+    "forgotTitle": "Forgot your password?",
+    "forgotSubtitle": "Enter your email and we will send you a 6-digit verification code",
+    "forgotButton": "Send verification code",
+    "forgotSentTitle": "Code sent",
+    "forgotSentDescription": "We sent a verification code to {email} — it expires in 1 minute",
+    "otpNote": "Check your inbox or spam folder",
+    "enterOtp": "Enter the code",
+    "resendEmail": "Resend email",
+    "forgotResent": "Verification code resent",
+    "backToLogin": "Back to sign in",
+    "otpTitle": "Verify your OTP",
+    "otpSubtitle": "Enter the 6-digit code we sent to your email",
+    "otpCountdownLabel": "Time remaining for the code",
+    "otpDigit": "Digit",
+    "otpExpired": "Code expired",
+    "verifyButton": "Verify",
+    "resendOtp": "Resend code",
+    "otpHelp": "Did not receive the code?",
+    "otpSecurityNote": "The code is secure and single-use",
+    "otpVerified": "Verified successfully",
+    "otpResent": "Code resent — valid for 1 minute"
+  },
+  "landing": {
+    "hero": {
+      "badge": "The AI project evaluation marketplace",
+      "title": "Every project deserves a chance",
+      "subtitle": "An AI platform that evaluates your project, diagnoses its gaps, and connects you with the right investor",
+      "ctaUpload": "Upload your project",
+      "ctaExplore": "Explore projects",
+      "stats": {
+        "projects": "Projects",
+        "investors": "Investors",
+        "deals": "Successful deals"
+      },
+      "card": {
+        "label": "Live AI evaluation",
+        "title": "Smart Evaluation Platform for Startups",
+        "verdict": "Overall verdict:",
+        "verdictValue": "Strong"
+      }
+    },
+    "how": {
+      "title": "How Ihyaa works",
+      "subtitle": "Four simple steps between your idea and its funding",
+      "steps": {
+        "upload": {
+          "title": "Upload your project",
+          "description": "A simple, clear form in under 10 minutes — title, description, sector and tech stack"
+        },
+        "ai": {
+          "title": "AI evaluates",
+          "description": "Smart analysis across five dimensions: technical quality, innovation, market, team and documentation"
+        },
+        "report": {
+          "title": "Gap report",
+          "description": "Clear, actionable gaps and recommendations with defined priorities"
+        },
+        "connect": {
+          "title": "Connect with an investor",
+          "description": "The “I am interested” button connects you directly with the right investors"
+        }
+      }
+    },
+    "ai": {
+      "title": "Your smart evaluation in seconds",
+      "subtitle": "Five dimensions, gap analysis and practical recommendations — with full transparency",
+      "points": {
+        "fiveDimensions": "Evaluation across 5 dimensions with clear sub-scores",
+        "gapAnalysis": "Gap analysis with high, medium and low priorities",
+        "confidence": "A confidence score for every evaluation, with the right disclosure level"
+      },
+      "cta": "See real evaluations",
+      "sampleProject": "Sample AI evaluation report",
+      "dimensions": {
+        "technical": "Technical quality",
+        "innovation": "Innovation",
+        "market": "Market viability",
+        "team": "Team completeness",
+        "documentation": "Documentation"
+      }
+    },
+    "proof": {
+      "title": "Trusted by those who started before us",
+      "testimonials": {
+        "t1": {
+          "quote": "The smart evaluation opened my eyes to gaps in the market and team I could not see. Two weeks later I signed my first funding agreement.",
+          "initial": "K",
+          "name": "Khalid Alotaibi",
+          "role": "Founder, evaluation platform"
+        },
+        "t2": {
+          "quote": "As an investor, the report saves me hours of screening. I reach promising projects directly and with less risk.",
+          "initial": "S",
+          "name": "Sara Almutairi",
+          "role": "Angel investor"
+        },
+        "t3": {
+          "quote": "We reached 5 interested investors in the first month — something that used to take us a whole year before Ihyaa.",
+          "initial": "M",
+          "name": "Mohammed Alshammari",
+          "role": "CEO — Fintech"
+        }
+      },
+      "partners": "Our success partners",
+      "partnerNames": {
+        "p1": "King Saud University",
+        "p2": "STC Ventures",
+        "p3": "Monsha'at Fund",
+        "p4": "Polytechnic Academy",
+        "p5": "Nomo Accelerator",
+        "p6": "Monsha'at Platform"
+      }
+    },
+    "cta": {
+      "title": "Ready to revive your project?",
+      "subtitle": "Join today and get your first evaluation for free",
+      "emailPlaceholder": "Your email address",
+      "button": "Get started",
+      "note": "Free forever in the MVP — no credit card required"
+    },
+    "ctaEmailInvalid": "Please enter a valid email address",
+    "ctaSuccess": "Subscribed! We will be in touch soon"
+  },
+  "projects": {
+    "aiScore": "AI Score",
+    "scoreTiers": {
+      "weak": "Needs work",
+      "medium": "Average",
+      "good": "Good",
+      "excellent": "Strong"
+    },
+    "tagsLabel": "Technologies",
+    "saveProject": "Save project",
+    "removeSaved": "Remove from saved",
+    "status": "Status: {status}",
+    "gallery": {
+      "title": "Explore projects",
+      "subtitle": "AI-evaluated projects waiting for their investor",
+      "upload": "Upload your project",
+      "searchPlaceholder": "Search projects in Arabic or English...",
+      "searchLabel": "Search projects",
+      "filters": "Filter by sector",
+      "all": "All",
+      "sort": "Sort",
+      "sortNewest": "Newest",
+      "sortTopRated": "Top rated",
+      "sortMostViewed": "Most viewed",
+      "viewMode": "View mode",
+      "emptyTitle": "No matching results",
+      "emptyDescription": "Try different keywords or clear the filters",
+      "clearFilters": "Clear filters",
+      "pagination": "Pagination",
+      "prev": "Previous",
+      "next": "Next",
+      "count": "{count} projects"
+    },
+    "detail": {
+      "loginRequired": "Please sign in first",
+      "interested": "I am interested",
+      "interestSent": "Interest sent — the owner will reach out to you",
+      "save": "Save",
+      "saved": "Saved",
+      "unsaved": "Removed from saved",
+      "tabsLabel": "Project sections",
+      "tabs": {
+        "overview": "Overview",
+        "report": "AI report",
+        "team": "Team",
+        "agreement": "PDF agreement"
+      },
+      "overviewTitle": "About the project",
+      "overviewBody": "An overview of the project: its core idea, the problem it solves and the target audience. Full details come from the project files, repository links and video demos.",
+      "overviewBody2": "This description updates with each re-evaluation; only significant changes are published after owner review.",
+      "videoDemo": "Video demo",
+      "videoPlaceholder": "Video preview will be available once the backend is connected",
+      "repoLink": "GitHub repository",
+      "stats": {
+        "title": "Quick stats",
+        "date": "Published",
+        "views": "Views",
+        "budget": "Budget",
+        "interested": "Interested",
+        "status": "Status"
+      },
+      "owner": "Project owner",
+      "joined": "Joined {date}",
+      "similar": "Similar projects",
+      "backToGallery": "Back to gallery",
+      "backLabel": "Navigation"
+    },
+    "report": {
+      "gatedTitle": "Full evaluation report is gated",
+      "gatedDescription": "Sign in to see the five dimension scores and the radar chart. Gaps, recommendations and SWOT unlock after an agreement.",
+      "gatedCta": "Sign in to view the report",
+      "overall": "Overall score",
+      "confidence": "Confidence: {value}%",
+      "asyncNote": "Async evaluation — your report is ready in under 2 minutes (P95: 120s)",
+      "dimensions": {
+        "technical": "Technical quality",
+        "innovation": "Innovation",
+        "market": "Market viability",
+        "team": "Team completeness",
+        "documentation": "Documentation"
+      },
+      "swot": "SWOT analysis",
+      "swotItems": {
+        "strengths": { "title": "Strengths" },
+        "weaknesses": { "title": "Weaknesses" },
+        "opportunities": { "title": "Opportunities" },
+        "threats": { "title": "Threats" }
+      },
+      "gaps": "Gap analysis",
+      "gaps": {
+        "technical": {
+          "title": "Technical gap",
+          "recommendation": "Document the technical architecture and adopt automated tests to reduce delivery risk"
+        },
+        "market": {
+          "title": "Market gap",
+          "recommendation": "Run 20 customer interviews and prove demand before the next round"
+        },
+        "team": {
+          "title": "Team gap",
+          "recommendation": "Hire a growth marketer and a part-time legal advisor"
+        },
+        "documentation": {
+          "title": "Documentation gap",
+          "recommendation": "Prepare a business plan and a 3-year financial forecast with an investment gap statement"
+        }
+      },
+      "priority": {
+        "high": "High priority",
+        "medium": "Medium priority",
+        "low": "Low priority"
+      }
+    },
+    "agreement": {
+      "title": "Collaboration agreement",
+      "description": "Once the owner accepts your interest, a static PDF with both parties' names is generated. No e-signature in the MVP.",
+      "download": "Download agreement",
+      "availableAfter": "The agreement becomes available after the interest request is accepted"
+    },
+    "wizard": {
+      "title": "Upload your project",
+      "subtitle": "Four steps and your project is live for investors",
+      "progressLabel": "Project upload steps",
+      "stepLabel": "Step {current} of {total}",
+      "step1Title": "Basics",
+      "step2Title": "Details & files",
+      "step3Title": "Team & budget",
+      "step4Title": "Review & publish",
+      "incomplete": "Please complete the required fields to continue",
+      "published": "Your project was published successfully",
+      "successTitle": "Congratulations! Your project is live",
+      "successDescription": "The smart evaluation started automatically and you will get notifications as it progresses",
+      "aiQueued": "Evaluation in progress — expected turnaround under 2 minutes",
+      "goDashboard": "Go to dashboard",
+      "viewGallery": "View gallery",
+      "fieldTitle": "Project title",
+      "fieldTitlePlaceholder": "e.g. Interactive learning platform",
+      "fieldDescription": "Short description",
+      "fieldDescriptionPlaceholder": "Explain your idea in 2–3 sentences",
+      "fieldSector": "Sector",
+      "fieldSectorPlaceholder": "Choose a sector...",
+      "fieldTags": "Technologies used",
+      "fieldCover": "Cover image",
+      "coverHint": "Drag an image here or click to browse",
+      "fieldDetails": "Detailed description",
+      "fieldDetailsPlaceholder": "Problem, solution, target audience, business model...",
+      "fieldRepo": "GitHub link",
+      "fieldVideo": "Video link (YouTube/Vimeo)",
+      "videoHint": "Links are validated (YouTube/Vimeo only) — no direct upload in the MVP",
+      "fieldStatus": "Project status",
+      "status": {
+        "completed": "Completed",
+        "needs_development": "Needs development",
+        "needs_funding": "Needs funding"
+      },
+      "fieldTeam": "Team members",
+      "memberName": "Name",
+      "memberRole": "Role",
+      "fieldBudget": "Requested budget",
+      "fieldDuration": "Expected development time",
+      "fieldDurationPlaceholder": "e.g. 6 months",
+      "untitled": "Untitled",
+      "noDescription": "No description added yet",
+      "fieldVisibility": "Visibility",
+      "visibility": {
+        "public": "Public — visible to everyone",
+        "investors_only": "Investors only"
+      },
+      "rightsConfirm": "I confirm I own this project or have permission to publish it",
+      "saveDraft": "Save as draft",
+      "draftSaved": "Draft saved locally",
+      "back": "Back",
+      "next": "Next",
+      "publish": "Publish project"
+    }
+  },
+  "dashboard": {
+    "owner": {
+      "title": "Idea owner dashboard",
+      "subtitle": "Track your projects, evaluations and interest requests",
+      "newProject": "New project",
+      "stats": {
+        "projects": "Projects",
+        "avgScore": "Avg. score",
+        "interested": "Interested",
+        "views": "Total views"
+      },
+      "tabsLabel": "Dashboard sections",
+      "tabs": {
+        "projects": "My projects",
+        "interests": "Interests",
+        "trash": "Trash"
+      },
+      "table": {
+        "title": "Title",
+        "score": "Score",
+        "status": "Status",
+        "interested": "Interested",
+        "updated": "Updated",
+        "actions": "Actions"
+      },
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "reevaluate": "Re-evaluate",
+      "reevalQueued": "Re-evaluation queued — we will notify you when it is ready",
+      "deleted": "Project moved to trash",
+      "trashHint": "Restorable for 30 days",
+      "restored": "Project restored",
+      "accepted": "Request accepted — agreement PDF generated and email revealed",
+      "declined": "Request declined",
+      "requestStatus": {
+        "new": "New",
+        "contacted": "Contacted",
+        "agreed": "Agreed"
+      },
+      "accept": "Accept",
+      "decline": "Decline",
+      "interestsEmpty": "No interest requests yet",
+      "interestsEmptyDesc": "When an investor expresses interest in your project, their request will show up here",
+      "trashNote": "Deleted projects stay here for 30 days, then are purged permanently",
+      "trashEmpty": "Trash is empty",
+      "restore": "Restore",
+      "deleteForever": "Delete forever",
+      "insights": "Your scores over time",
+      "insightsNote": "Illustrative bars of your projects' average scores per month",
+      "editSoon": "The edit page will be available once the backend is connected"
+    },
+    "investor": {
+      "title": "Investor dashboard",
+      "subtitle": "Discover, save and express interest in promising projects",
+      "stats": {
+        "saved": "Saved projects",
+        "interestsSent": "Interests sent",
+        "accepted": "Accepted",
+        "pending": "Pending"
+      },
+      "tabsLabel": "Dashboard sections",
+      "tabs": {
+        "discover": "Discover",
+        "saved": "Saved",
+        "interests": "My interests",
+        "preferences": "Preferences"
+      },
+      "discoverFilters": "Filter suggestions",
+      "all": "All",
+      "savedEmpty": "No saved projects",
+      "savedEmptyDesc": "Save promising projects from the gallery and they will appear here",
+      "removeSaved": "Remove from saved",
+      "saved": "Project saved",
+      "unsaved": "Project removed from saved",
+      "interestsEmpty": "No interests sent yet",
+      "interestStatus": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected"
+      },
+      "agreement": "Agreement",
+      "agreementSoon": "The PDF agreement will be available once the owner accepts",
+      "preferencesTitle": "Investment preferences",
+      "prefSectors": "Preferred sectors",
+      "prefBudget": "Budget range",
+      "savePrefs": "Save preferences",
+      "prefSaved": "Preferences saved — discover suggestions will be personalized",
+      "prefsNote": "Your preferences personalize the Discover tab (full AI matching lands in v1.1)"
+    }
+  }
+}

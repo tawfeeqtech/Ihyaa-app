@@ -1,0 +1,282 @@
+<?php
+
+use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AgreementController;
+use App\Http\Controllers\Api\AIAgentController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EvaluationController;
+use App\Http\Controllers\Api\FileController;
+use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\InterestController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SavedProjectController;
+use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\TrashController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| L7 — Health & Meta (بدون Rate Limit — IP داخلي فقط في الإنتاج)
+|--------------------------------------------------------------------------
+*/
+Route::get('/health', [HealthController::class, 'index']);
+Route::get('/ready', [HealthController::class, 'ready']);
+
+/*
+|--------------------------------------------------------------------------
+| L1 — المصادقة (Public — حدود صارمة)
+| SRS-API-01..08
+|--------------------------------------------------------------------------
+*/
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:auth.register');                          // RL-AUTH-01 · 3/دقيقة · IP
+
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware(['rate.violations', 'throttle:auth.login']);        // RL-AUTH-02 · 5/دقيقة · email
+
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:auth.forgot-password');                   // RL-AUTH-05 · 2/دقيقة · email
+
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+    ->middleware('throttle:auth.reset-password');                    // RL-AUTH-06 · 2/دقيقة · email
+
+Route::get('/auth/{provider}', [AuthController::class, 'redirectToProvider'])
+    ->whereIn('provider', ['google', 'github', 'linkedin'])
+    ->middleware('throttle:auth.oauth');                             // RL-AUTH-07 · 5/دقيقة · IP
+
+Route::post('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback'])
+    ->whereIn('provider', ['google', 'github', 'linkedin'])
+    ->middleware('throttle:auth.oauth');                             // RL-AUTH-08 · 5/دقيقة · IP
+
+/*
+|--------------------------------------------------------------------------
+| L2 — التصفح العام (Public — IP)
+| SRS-API-13, 14, 20, 21, 12, 49
+|--------------------------------------------------------------------------
+*/
+Route::get('/projects', [ProjectController::class, 'index'])
+    ->middleware('throttle:public.browse');                          // RL-PUB-01 · 30/دقيقة
+
+Route::get('/projects/{project}', [ProjectController::class, 'show'])
+    ->middleware('throttle:public.detail');                          // RL-PUB-02 · 60/دقيقة (مخزّن مؤقتاً)
+
+Route::get('/search', [SearchController::class, 'search'])
+    ->middleware('throttle:public.browse');                          // RL-PUB-03 · 30/دقيقة
+
+Route::get('/search/suggestions', [SearchController::class, 'suggestions'])
+    ->middleware('throttle:public.browse');                          // RL-PUB-04 · 30/دقيقة
+
+Route::get('/tags/suggestions', [TagController::class, 'suggestions'])
+    ->middleware('throttle:public.browse');                          // SRS-API-49 · L2 · 30/دقيقة
+
+Route::get('/profile/{user}', [ProfileController::class, 'showPublic'])
+    ->middleware('throttle:public.browse');                          // RL-PUB-05 · 30/دقيقة
+
+/*
+|--------------------------------------------------------------------------
+| المصادق عليهم — Sanctum (جميع المسارات التالية)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
+
+    /*
+    | L1 — استكمال المصادقة (مصادق)
+    |------------------------------------------------------------------------
+    */
+    Route::post('/logout', [AuthController::class, 'logout'])
+        ->middleware('throttle:auth.logout');                        // RL-AUTH-03 · 10/دقيقة · user_id
+
+    Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
+        ->middleware('throttle:auth.email-verify');                  // RL-AUTH-04 · 3/دقيقة · user_id
+    // Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
+
+    Route::get('/me', [AuthController::class, 'me'])
+        ->middleware('throttle:shared.read');
+
+    /*
+    | L3/L4 — الملف الشخصي (Shared — read حسب الدور)
+    | SRS-API-09..11
+    |------------------------------------------------------------------------
+    */
+    Route::get('/profile', [ProfileController::class, 'show'])
+        ->middleware('throttle:shared.read');                        // RL-IO-01 / RL-INV-01 · 60/120/دقيقة
+
+    Route::put('/profile', [ProfileController::class, 'update'])
+        ->middleware('throttle:shared.write');                       // RL-IO-02 / RL-INV-02 · 10/دقيقة
+    // يُسمح بحقل role فقط عندما role=null (أول دخول OAuth — SRS-F01-07)
+
+    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])
+        ->middleware('throttle:upload.file');                        // RL-IO-03 / RL-INV-03 · L5 · 10/دقيقة
+
+    /*
+    | L3-W — إدارة المشاريع (Idea Owner — Policies داخلية للتحقق من الملكية)
+    | SRS-API-15..17
+    |------------------------------------------------------------------------
+    */
+    Route::middleware(['idea-owner', 'email.verified'])->group(function () {
+
+        Route::post('/projects', [ProjectController::class, 'store'])
+            ->middleware('throttle:idea-owner.write');               // RL-IO-04 · 10/دقيقة
+
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])
+            ->middleware('throttle:idea-owner.write');               // RL-IO-05 · 10/دقيقة
+
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
+            ->middleware('throttle:idea-owner.write');               // RL-IO-06 · 10/دقيقة
+
+        Route::delete('/projects/{project}/files/{file}', [FileController::class, 'destroy'])
+            ->middleware('throttle:idea-owner.write');               // امتداد مقترح (تجربة رفع كاملة)
+
+        /*
+        | L5 — رفع الملفات (Idea Owner — مالك المشروع)
+        | SRS-API-18
+        |----------------------------------------------------------------------
+        */
+        Route::post('/projects/{project}/files', [FileController::class, 'upload'])
+            ->middleware('throttle:upload.file');                    // RL-IO-07 · L5 · 10/دقيقة
+
+        /*
+        | L5 — التقييم وإعادة التقييم (Idea Owner — مالك المشروع)
+        | SRS-API-44..47 · 3/دقيقة لكل (user_id + project_id) + Cache 24 ساعة
+        |----------------------------------------------------------------------
+        */
+        Route::post('/projects/{project}/evaluate', [EvaluationController::class, 'evaluate'])
+            ->middleware('throttle:ai.evaluate');
+
+        Route::post('/projects/{project}/re-evaluate', [EvaluationController::class, 'reEvaluate'])
+            ->middleware('throttle:ai.evaluate');
+
+        Route::post('/projects/{project}/evaluations/{evaluation}/retry',
+            [EvaluationController::class, 'retry'])
+            ->middleware('throttle:ai.evaluate');
+
+        Route::get('/projects/{project}/evaluation-status',
+            [EvaluationController::class, 'status'])
+            ->middleware('throttle:shared.read');
+
+        /*
+        | L3 — سلة المهملات (Idea Owner)
+        | SRS-API-35..37
+        |----------------------------------------------------------------------
+        */
+        Route::get('/trashed-projects', [TrashController::class, 'index'])
+            ->middleware('throttle:shared.read');                    // RL-IO-10 · 20/دقيقة
+
+        // withTrashed: ربط المشاريع المحذوفة ناعماً (سلة المهملات)
+        Route::post('/trashed-projects/{project}/restore', [TrashController::class, 'restore'])
+            ->withTrashed()
+            ->middleware('throttle:shared.write');                   // RL-IO-11 · 10/دقيقة
+
+        Route::delete('/trashed-projects/{project}/force', [TrashController::class, 'forceDelete'])
+            ->withTrashed()
+            ->middleware('throttle:shared.write');                   // RL-IO-12 · 10/دقيقة
+
+        /*
+        | L5 — وكيل AI: تحليل المشاريع (Idea Owner — مالك المشروع)
+        | SRS-API-42..43
+        |----------------------------------------------------------------------
+        */
+        Route::post('/ai/analyze/{project}', [AIAgentController::class, 'analyze'])
+            ->middleware('throttle:ai.analyze');                     // RL-AI-01 · 3/دقيقة · user+project
+
+        Route::get('/ai/analysis/{artifact}', [AIAgentController::class, 'show'])
+            ->middleware('throttle:ai.report');                      // RL-AI-02 · 10/دقيقة
+
+        /*
+        | L5 — تصدير تقرير التقييم PDF (Owner دائماً / Investor بعد الاتفاق)
+        | SRS-API-48
+        |----------------------------------------------------------------------
+        */
+        Route::get('/projects/{project}/evaluations/{evaluation}/report',
+            [ReportController::class, 'export'])
+            ->middleware('throttle:ai.report');
+    });
+
+    /*
+    | L4-W — الاهتمام والمحفوظات (Investor)
+    | SRS-API-22, 33, 34
+    |------------------------------------------------------------------------
+    */
+    Route::middleware(['investor', 'email.verified'])->group(function () {
+
+        Route::post('/projects/{project}/interest', [InterestController::class, 'store'])
+            ->middleware('throttle:investor.write');                 // RL-INV-04 · 10/دقيقة
+
+        Route::post('/projects/{project}/save', [SavedProjectController::class, 'save'])
+            ->middleware('throttle:investor.write');                 // RL-INV-07 · 10/دقيقة
+
+        Route::delete('/projects/{project}/save', [SavedProjectController::class, 'unsave'])
+            ->middleware('throttle:investor.write');                 // RL-INV-08 · 10/دقيقة
+
+        Route::get('/saved-projects', [SavedProjectController::class, 'index'])
+            ->middleware('throttle:shared.read');                    // RL-INV-06 · 60/دقيقة
+    });
+
+    /*
+    | L3/L4 — نقاط مشتركة (Shared — role policies داخلية)
+    | SRS-API-19, 23..27, 28..31
+    |------------------------------------------------------------------------
+    */
+    Route::get('/projects/{project}/evaluations', [ProjectController::class, 'evaluations'])
+        ->middleware('throttle:shared.read');                        // RL-IO-08 · 30/دقيقة
+
+    Route::get('/interests/received', [InterestController::class, 'received'])
+        ->middleware('throttle:shared.read');                        // RL-SH-01 · L3 · 30/دقيقة (IO)
+
+    Route::get('/interests/sent', [InterestController::class, 'sent'])
+        ->middleware('throttle:shared.read');                        // RL-INV-05 · 60/دقيقة (Investor)
+
+    Route::put('/interests/{interest}/accept', [InterestController::class, 'accept'])
+        ->middleware('throttle:shared.write');                       // RL-SH-02 · 10/دقيقة (IO — مالك المشروع)
+
+    Route::put('/interests/{interest}/reject', [InterestController::class, 'reject'])
+        ->middleware('throttle:shared.write');                       // RL-SH-03 · 10/دقيقة (IO — مالك المشروع)
+
+    Route::post('/interests/{interest}/cancel', [InterestController::class, 'cancel'])
+        ->middleware('throttle:shared.write');                       // UC-07 E2 (Investor)
+
+    Route::get('/agreements/{agreement}', [AgreementController::class, 'show'])
+        ->middleware('throttle:shared.read');                        // RL-SH-04 · 10/دقيقة (الطرفان)
+
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->middleware('throttle:shared.read');                        // RL-SH-05 · 30/دقيقة
+
+    Route::put('/notifications/{notification}/read', [NotificationController::class, 'markRead'])
+        ->middleware('throttle:shared.read');                        // RL-SH-06 · 30/دقيقة
+
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+        ->middleware('throttle:shared.write');                       // RL-SH-07 · 10/دقيقة
+
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
+        ->middleware('throttle:shared.read');                        // RL-SH-08 · 30/دقيقة
+
+    /*
+    | L3/L4 — لوحات التحكم (Dashboard — 20/دقيقة)
+    | SRS-API-38..39
+    |------------------------------------------------------------------------
+    */
+    Route::get('/dashboard/idea-owner', [DashboardController::class, 'ideaOwner'])
+        ->middleware(['idea-owner', 'throttle:dashboard']);          // RL-IO-09 · 20/دقيقة
+
+    Route::get('/dashboard/investor', [DashboardController::class, 'investor'])
+        ->middleware(['investor', 'throttle:dashboard']);            // RL-INV-09 · 20/دقيقة
+
+    /*
+    | L6 — المشرف (Admin — seeder فقط)
+    | SRS-API-40..41
+    |------------------------------------------------------------------------
+    */
+    Route::middleware('admin')->group(function () {
+
+        Route::get('/admin/analytics', [AdminController::class, 'analytics'])
+            ->middleware('throttle:admin.read');                     // RL-ADM-01 · 60/دقيقة
+
+        Route::get('/admin/analytics/export', [AdminController::class, 'export'])
+            ->middleware('throttle:admin.export');                   // RL-ADM-02 · 10/دقيقة
+    });
+});
