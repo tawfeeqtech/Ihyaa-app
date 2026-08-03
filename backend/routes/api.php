@@ -34,24 +34,24 @@ Route::get('/ready', [HealthController::class, 'ready']);
 |--------------------------------------------------------------------------
 */
 Route::post('/register', [AuthController::class, 'register'])
-    ->middleware('throttle:auth.register');                          // RL-AUTH-01 · 3/دقيقة · IP
+    ->middleware('throttle:api.register');                           // SRS-API-01 · RL-AUTH-01 · 3/دقيقة · IP
 
 Route::post('/login', [AuthController::class, 'login'])
-    ->middleware(['rate.violations', 'throttle:auth.login']);        // RL-AUTH-02 · 5/دقيقة · email
+    ->middleware(['rate.violations', 'throttle:api.login']);         // SRS-API-02 · RL-AUTH-02 · 5/دقيقة · email
 
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
-    ->middleware('throttle:auth.forgot-password');                   // RL-AUTH-05 · 2/دقيقة · email
+    ->middleware('throttle:api.forgot');                             // SRS-API-05 · RL-AUTH-05 · 2/دقيقة · email
 
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])
-    ->middleware('throttle:auth.reset-password');                    // RL-AUTH-06 · 2/دقيقة · email
+    ->middleware('throttle:api.reset');                              // SRS-API-06 · RL-AUTH-06 · 2/دقيقة · email
 
 Route::get('/auth/{provider}', [AuthController::class, 'redirectToProvider'])
     ->whereIn('provider', ['google', 'github', 'linkedin'])
-    ->middleware('throttle:auth.oauth');                             // RL-AUTH-07 · 5/دقيقة · IP
+    ->middleware('throttle:api.oauth');                              // SRS-API-07 · RL-AUTH-07 · 5/دقيقة · IP
 
 Route::post('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback'])
     ->whereIn('provider', ['google', 'github', 'linkedin'])
-    ->middleware('throttle:auth.oauth');                             // RL-AUTH-08 · 5/دقيقة · IP
+    ->middleware('throttle:api.oauth');                              // SRS-API-08 · RL-AUTH-08 · 5/دقيقة · IP
 
 /*
 |--------------------------------------------------------------------------
@@ -89,10 +89,10 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     |------------------------------------------------------------------------
     */
     Route::post('/logout', [AuthController::class, 'logout'])
-        ->middleware('throttle:auth.logout');                        // RL-AUTH-03 · 10/دقيقة · user_id
+        ->middleware('throttle:api.logout');                         // SRS-API-03 · RL-AUTH-03 · 10/دقيقة · user_id
 
     Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
-        ->middleware('throttle:auth.email-verify');                  // RL-AUTH-04 · 3/دقيقة · user_id
+        ->middleware('throttle:api.otp');                            // SRS-API-04 · RL-AUTH-04 · 3/دقيقة · email
     // Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
 
     Route::get('/me', [AuthController::class, 'me'])

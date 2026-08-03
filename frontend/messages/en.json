@@ -6,6 +6,11 @@
     "loggedOut": "Signed out successfully",
     "guest": "Guest"
   },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "We are sorry for the interruption. Please try again, or contact us if the problem persists.",
+    "retry": "Try again"
+  },
   "nav": {
     "explore": "Explore projects",
     "howItWorks": "How it works",
@@ -325,7 +330,7 @@
         "opportunities": { "title": "Opportunities" },
         "threats": { "title": "Threats" }
       },
-      "gaps": "Gap analysis",
+      "gapsTitle": "Gap Analysis",
       "gaps": {
         "technical": {
           "title": "Technical gap",
@@ -355,6 +360,12 @@
       "description": "Once the owner accepts your interest, a static PDF with both parties' names is generated. No e-signature in the MVP.",
       "download": "Download agreement",
       "availableAfter": "The agreement becomes available after the interest request is accepted"
+    },
+    "project": {
+      "team": {
+        "member": "Engineering lead",
+        "lead": "Growth lead"
+      }
     },
     "wizard": {
       "title": "Upload your project",
@@ -414,6 +425,7 @@
     }
   },
   "dashboard": {
+    "unauthorizedRole": "You do not have permission to access this page",
     "owner": {
       "title": "Idea owner dashboard",
       "subtitle": "Track your projects, evaluations and interest requests",

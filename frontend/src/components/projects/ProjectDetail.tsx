@@ -88,8 +88,8 @@ export function ProjectDetail({ project }: { project: Project }) {
 
   const team = [
     { name: project.owner.name, role: locale === "ar" ? project.owner.role.ar : project.owner.role.en },
-    { name: locale === "ar" ? "عضو فريق تقني" : "Engineering lead", role: "Engineering" },
-    { name: locale === "ar" ? "عضو فريق تسويق" : "Growth lead", role: "Growth" },
+    { name: t("project.team.member"), role: "Engineering" },
+    { name: t("project.team.lead"), role: "Growth" },
   ];
 
   function handleInterested() {
@@ -336,8 +336,8 @@ export function ProjectDetail({ project }: { project: Project }) {
                     </section>
 
                     {/* Gap analysis */}
-                    <section aria-label={t("report.gaps")}>
-                      <h3 className="mb-4 font-heading text-lg font-bold">{t("report.gaps")}</h3>
+                    <section aria-label={t("report.gapsTitle")}>
+                      <h3 className="mb-4 font-heading text-lg font-bold">{t("report.gapsTitle")}</h3>
                       <div className="space-y-3">
                         {(["technical", "market", "team", "documentation"] as const).map((gap, i) => (
                           <div key={gap} className="flex items-start gap-4 rounded-xl border border-border bg-surface-1 p-5">

@@ -93,6 +93,11 @@ class AuthController
 
         $user = User::where('email', $data['email'])->first();
 
+        // حساب غير مفعَّل البريد → رفض الدخول قبل محاولة المصادقة (US-003 س4 · SRS-F01-02)
+        if ($user && $user->email_verified_at === null) {
+            return $this->error('EMAIL_NOT_VERIFIED', 'يرجى تفعيل بريدك الإلكتروني أولاً', 401);
+        }
+
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return $this->error('INVALID_CREDENTIALS', __('auth.invalid_credentials'), 401);
         }
@@ -171,7 +176,7 @@ class AuthController
         return $this->success(['verified' => true], __('auth.otp_verified'));
     }
 
-    /** إعادة إرسال رمز OTP — الحد 3/دقيقة عبر throttle:auth.email-verify */
+    /** إعادة إرسال رمز OTP — الحد 3/دقيقة عبر throttle:api.otp */
     public function resendOtp(Request $request): JsonResponse
     {
         $data = $request->validate([

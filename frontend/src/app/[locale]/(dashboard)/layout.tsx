@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar, type SidebarRole } from "@/components/layout/Sidebar";
+import { DashboardErrorToast } from "@/components/layout/DashboardErrorToast";
 
 /**
  * Shared shell for the dashboard group: Header + role-aware Sidebar + Footer.
@@ -40,7 +41,10 @@ export default async function DashboardLayout({
 
         {authed && <Sidebar role={role} userName={userName} />}
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          <DashboardErrorToast />
+          {children}
+        </main>
       </div>
 
       <Footer />

@@ -18,7 +18,8 @@ const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/verify-otp"];
  * Middleware chain:
  *  1. Resolve the locale prefix from the pathname.
  *  2. Enforce auth on protected / guest-only routes.
- *  3. Delegate to next-intl's locale middleware (redirects/rewrites).
+ *  3. Role guard: idea_owner ↔ investor dashboards are mutually exclusive (US-006).
+ *  4. Delegate to next-intl's locale middleware (redirects/rewrites).
  */
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -44,9 +45,37 @@ export default function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Role guard (US-006 / UC-01/E3): idea-owner and investor dashboards are
+  // mutually exclusive — cross-role access redirects to the role's own
+  // dashboard with `?error=unauthorized_role` for the layout toast.
+  const role = request.cookies.get(ROLE_COOKIE)?.value;
+  const isOwnerDashboard = path === "/dashboard/owner" || path.startsWith("/dashboard/owner/");
+  const isInvestorDashboard =
+    path === "/dashboard/investor" || path.startsWith("/dashboard/investor/");
+
+  if (isAuthed && (isOwnerDashboard || isInvestorDashboard) && role) {
+    const mismatch =
+      (isOwnerDashboard && role !== "idea_owner") ||
+      (isInvestorDashboard && role !== "investor");
+
+    if (mismatch) {
+      const target =
+        role === "investor"
+          ? "/dashboard/investor"
+          : role === "idea_owner"
+            ? "/dashboard/owner"
+            : null;
+
+      if (target) {
+        const dest = new URL(`/${locale}${target}`, request.url);
+        dest.searchParams.set("error", "unauthorized_role");
+        return NextResponse.redirect(dest);
+      }
+    }
+  }
+
   // Authed → auth pages: send them to their dashboard.
   if (isAuthPage && isAuthed) {
-    const role = request.cookies.get(ROLE_COOKIE)?.value;
     const dashboard =
       role === "investor" ? `/${locale}/dashboard/investor` : `/${locale}/dashboard/owner`;
     return NextResponse.redirect(new URL(dashboard, request.url));

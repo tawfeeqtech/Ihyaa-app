@@ -182,7 +182,8 @@ export default function RegisterPage() {
           />
           <span>
             {t("termsPrefix")}{" "}
-            <Link href="/login" className="font-medium text-primary-600 hover:underline">
+            {/* Placeholder — a dedicated /terms page is pending (US-001) */}
+            <Link href="/#" className="font-medium text-primary-600 hover:underline">
               {t("termsLink")}
             </Link>
           </span>

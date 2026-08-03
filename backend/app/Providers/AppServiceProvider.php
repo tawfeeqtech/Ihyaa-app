@@ -31,14 +31,14 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        // ---------------- L1: المصادقة (SRS-NFR-17) ----------------
-        RateLimiter::for('auth.register', fn (Request $r) => Limit::perMinute(3)->by($r->ip()));                                    // RL-AUTH-01
-        RateLimiter::for('auth.login', fn (Request $r) => Limit::perMinute(5)->by($r->input('email') ?: $r->ip()));              // RL-AUTH-02
-        RateLimiter::for('auth.logout', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-AUTH-03
-        RateLimiter::for('auth.email-verify', fn (Request $r) => Limit::perMinute(3)->by($r->input('email') ?: $r->user()?->id ?: $r->ip())); // RL-AUTH-04
-        RateLimiter::for('auth.forgot-password', fn (Request $r) => Limit::perMinute(2)->by($r->input('email') ?: $r->ip()));              // RL-AUTH-05
-        RateLimiter::for('auth.reset-password', fn (Request $r) => Limit::perMinute(2)->by($r->input('email') ?: $r->ip()));              // RL-AUTH-06
-        RateLimiter::for('auth.oauth', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));                                    // RL-AUTH-07/08
+        // ---------------- L1: المصادقة (SRS-NFR-17 · plan.md Rate Limiter Definitions) ----------------
+        RateLimiter::for('api.register', fn (Request $r) => Limit::perMinute(3)->by($r->ip()));                                  // SRS-API-01 · RL-AUTH-01 · 3/دقيقة
+        RateLimiter::for('api.login', fn (Request $r) => Limit::perMinute(5)->by($r->input('email') ?: $r->ip()));              // SRS-API-02 · RL-AUTH-02 · 5/دقيقة · email
+        RateLimiter::for('api.logout', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // SRS-API-03 · RL-AUTH-03 · 10/دقيقة · user_id
+        RateLimiter::for('api.otp', fn (Request $r) => Limit::perMinute(3)->by($r->input('email') ?: $r->ip()));                 // SRS-API-04 · RL-AUTH-04 · 3/دقيقة · email (منع توزيع الهجوم)
+        RateLimiter::for('api.forgot', fn (Request $r) => Limit::perMinute(2)->by($r->input('email') ?: $r->ip()));              // SRS-API-05 · RL-AUTH-05 · 2/دقيقة · email
+        RateLimiter::for('api.reset', fn (Request $r) => Limit::perMinute(2)->by($r->input('email') ?: $r->ip()));               // SRS-API-06 · RL-AUTH-06 · 2/دقيقة · email
+        RateLimiter::for('api.oauth', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));                                     // SRS-API-07/08 · RL-AUTH-07/08 · 5/دقيقة
 
         // ---------------- L2: التصفح العام (IP) ----------------
         RateLimiter::for('public.browse', fn (Request $r) => Limit::perMinute(30)->by($r->ip()));                                   // RL-PUB-01/03/04/05
@@ -53,8 +53,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('investor.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));
 
         // ---------------- L5: العمليات المكلفة (AI + رفع) ----------------
-        RateLimiter::for('ai.analyze', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')));    // RL-AI-01 user+project
-        RateLimiter::for('ai.evaluate', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')));    // SRS-API-44..46
+        RateLimiter::for('ai.analyze', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')?->id));    // RL-AI-01 user+project (implicit binding → id)
+        RateLimiter::for('ai.evaluate', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')?->id));    // SRS-API-44..46
         RateLimiter::for('ai.report', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-AI-02 + SRS-API-48
         RateLimiter::for('upload.file', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-IO-03/07
 
