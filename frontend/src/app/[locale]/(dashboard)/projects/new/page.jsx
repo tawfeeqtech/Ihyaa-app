@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
+import { api } from "@/shared/lib/api";
 import { sectorOptions, sectorLabels } from "@/features/projects/data/projects";
 import { cn } from "@/shared/utils";
 
@@ -70,14 +71,31 @@ export default function NewProjectPage() {
     setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   }
 
-  function handlePublish() {
+  async function handlePublish() {
     setSubmitting(true);
-    // Simulate POST /api/v1/projects + queued AI evaluation.
-    window.setTimeout(() => {
+    try {
+      await api.post("/projects", {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category_id: form.sector ? sectorOptions.findIndex((s) => s === form.sector) + 1 : null,
+        status: form.status,
+        publication_status: "published",
+        tags: form.tags,
+        github_url: form.repoUrl || null,
+        video_url: form.videoUrl || null,
+        budget_min: form.status === "needs_funding" ? form.budget : null,
+        budget_max: null,
+        visibility_level: form.visibility === "public" ? 1 : 2,
+      });
       setSubmitting(false);
       setPublished(true);
       toast.success(t("wizard.published"));
-    }, 900);
+    } catch (err) {
+      setSubmitting(false);
+      const body = err.body;
+      const msg = body?.message ?? (body?.errors ? Object.values(body.errors).flat().join(". ") : t("wizard.error"));
+      toast.error(msg);
+    }
   }
 
   /* ---------- Success screen ---------- */

@@ -466,6 +466,10 @@
       "accepted": "تم قبول الطلب — أُنشئ PDF الاتفاقية وكُشف البريد",
       "declined": "تم رفض الطلب",
       "requestStatus": {
+        "pending": "معلق",
+        "accepted": "مقبول",
+        "rejected": "مرفوض",
+        "cancelled": "ملغي",
         "new": "جديد",
         "contacted": "تم التواصل",
         "agreed": "اتفاق"
@@ -478,6 +482,8 @@
       "trashEmpty": "سلة المهملات فارغة",
       "restore": "استرجاع",
       "deleteForever": "حذف نهائي",
+      "projectsEmpty": "لا توجد مشاريع بعد",
+      "projectsEmptyDesc": "ارفع مشروعك الأول ودع الذكاء الاصطناعي يقيّمه للمستثمرين",
       "insights": "تطور تقييماتك",
       "insightsNote": "أعمدة توضيحية لمتوسط تقييمات مشاريعك حسب الشهر",
       "editSoon": "صفحة التعديل ستتوفر مع ربط الـ Backend"
@@ -509,7 +515,8 @@
       "interestStatus": {
         "pending": "معلق",
         "accepted": "مقبول",
-        "rejected": "مرفوض"
+        "rejected": "مرفوض",
+        "cancelled": "ملغي"
       },
       "agreement": "الاتفاقية",
       "agreementSoon": "ستتوفر اتفاقية PDF بعد قبول صاحب المشروع",

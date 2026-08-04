@@ -1,33 +1,106 @@
 /**
- * Mock data for the frontend skeleton.
- * Will be replaced by the Laravel REST API (Laravel Scramble docs) in Sprint 2.
+ * Frontend data helpers.
+ * Project records come from the Laravel REST API; `mapApiProject` normalises
+ * API card objects (toCardArray) into the shape the UI components expect.
  */
 
+/** Real backend categories (CategorySeeder — SRS-F02-01). */
 export const sectorOptions = [
-  "ai_ml",
-  "web",
-  "mobile",
   "fintech",
   "healthtech",
   "edtech",
   "ecommerce",
+  "saas",
+  "ai",
+  "agritech",
+  "logistics",
+  "real_estate",
+  "energy",
   "gaming",
-  "iot",
-  "cleantech",
+  "social",
+  "marketplace",
+  "tourism",
+  "other",
 ];
 
 export const sectorLabels = {
+  fintech: { ar: "التقنية المالية", en: "Fintech" },
+  healthtech: { ar: "التقنية الصحية", en: "Healthtech" },
+  edtech: { ar: "التقنية التعليمية", en: "Edtech" },
+  ecommerce: { ar: "التجارة الإلكترونية", en: "E-commerce" },
+  saas: { ar: "البرمجيات كخدمة", en: "SaaS" },
+  ai: { ar: "الذكاء الاصطناعي", en: "AI" },
+  agritech: { ar: "التقنية الزراعية", en: "Agritech" },
+  logistics: { ar: "اللوجستيات", en: "Logistics" },
+  real_estate: { ar: "العقارات", en: "Real Estate" },
+  energy: { ar: "الطاقة", en: "Energy" },
+  gaming: { ar: "الألعاب", en: "Gaming" },
+  social: { ar: "الشبكات الاجتماعية", en: "Social" },
+  marketplace: { ar: "الأسواق الرقمية", en: "Marketplace" },
+  tourism: { ar: "السياحة", en: "Tourism" },
+  other: { ar: "أخرى", en: "Other" },
+  // Legacy mock sectors — kept so older mock project records still render.
   ai_ml: { ar: "ذكاء اصطناعي", en: "AI/ML" },
   web: { ar: "تطبيقات ويب", en: "Web" },
   mobile: { ar: "تطبيقات جوال", en: "Mobile" },
-  fintech: { ar: "تقنية مالية", en: "Fintech" },
-  healthtech: { ar: "تقنية صحية", en: "Healthtech" },
-  edtech: { ar: "تقنية تعليمية", en: "EdTech" },
-  ecommerce: { ar: "تجارة إلكترونية", en: "E-commerce" },
-  gaming: { ar: "ألعاب", en: "Gaming" },
   iot: { ar: "إنترنت الأشياء", en: "IoT" },
   cleantech: { ar: "تقنية نظيفة", en: "CleanTech" },
 };
+
+/**
+ * Maps a category slug to its DB id. The backend has no public categories
+ * endpoint and POST /api/projects requires `category_id`, so this mirrors the
+ * CategorySeeder insertion order (fresh database: ids 1–15). Keep in sync with
+ * `backend/database/seeders/CategorySeeder.php`.
+ */
+export const CATEGORY_IDS = {
+  fintech: 1,
+  healthtech: 2,
+  edtech: 3,
+  ecommerce: 4,
+  saas: 5,
+  ai: 6,
+  agritech: 7,
+  logistics: 8,
+  real_estate: 9,
+  energy: 10,
+  gaming: 11,
+  social: 12,
+  marketplace: 13,
+  tourism: 14,
+  other: 15,
+};
+
+/**
+ * Normalise an API project object (from `toCardArray` / `projectDetail`) into
+ * the legacy shape consumed by ProjectCard and the dashboard tables.
+ */
+export function mapApiProject(p) {
+  const category = p?.category ?? null;
+  const sector = typeof category === "object" && category ? category.slug : category;
+
+  return {
+    id: String(p.id),
+    title: { ar: p.title ?? "", en: p.title ?? "" },
+    description: { ar: p.description ?? "", en: p.description ?? "" },
+    sector: sector || "other",
+    tags: p.tags ?? [],
+    aiScore: Math.round(p.ai_score ?? 0),
+    dimensions: p.dimensions ?? {},
+    status: p.state ?? p.project_state ?? "needs_funding",
+    budget: p.budget?.max ?? p.budget ?? 0,
+    createdAt: p.created_at,
+    views: p.view_count ?? 0,
+    interested: p.interested ?? 0,
+    owner: {
+      name: p.owner?.name ?? p.owner_name ?? "Owner",
+      role: { ar: "", en: "" },
+      joinedAt: "",
+    },
+    repoUrl: p.github_url ?? "",
+    videoUrl: p.video_url ?? "",
+  };
+}
 
 export const statusLabels = {
   completed: { ar: "مكتمل", en: "Completed" },

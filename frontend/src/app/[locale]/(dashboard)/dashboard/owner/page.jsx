@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowCounterClockwise,
@@ -19,15 +19,10 @@ import { Link } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { AIScoreBadge } from "@/features/projects/components/AIScoreBadge";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { Skeleton } from "@/shared/components/Skeleton";
 import { useToast } from "@/shared/components/Toast";
-import { projects, statusLabels } from "@/features/projects/data/projects";
+import { api } from "@/shared/lib/api";
 import { cn, formatNumber } from "@/shared/utils";
-
-const mockInterests = [
-  { id: 1, investor: "أحمد السالم", company: "AlSalam Ventures", projectId: "p1", date: "2026-07-28", status: "new" },
-  { id: 2, investor: "Layla Haddad", company: "MENA Angels", projectId: "p1", date: "2026-07-25", status: "contacted" },
-  { id: 3, investor: "Omar Farouk", company: "TechBridge", projectId: "p8", date: "2026-07-20", status: "agreed" },
-];
 
 export default function OwnerDashboardPage() {
   const t = useTranslations("dashboard");
@@ -36,44 +31,99 @@ export default function OwnerDashboardPage() {
   const toast = useToast();
 
   const [tab, setTab] = useState("projects");
-  const [interests, setInterests] = useState(mockInterests);
-  const [deleted, setDeleted] = useState(["p6"]);
+  const [loading, setLoading] = useState(true);
+  const [dashboard, setDashboard] = useState(null);
+  const [interests, setInterests] = useState([]);
+  const [trashed, setTrashed] = useState([]);
   const [evaluating, setEvaluating] = useState(null);
+  const [error, setError] = useState(null);
 
-  const myProjects = projects.filter((p) => p.id !== "p6");
-  const avgScore = Math.round(myProjects.reduce((sum, p) => sum + p.aiScore, 0) / myProjects.length);
-  const totalInterested = myProjects.reduce((sum, p) => sum + p.interested, 0);
-  const totalViews = myProjects.reduce((sum, p) => sum + p.views, 0);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const [dashData, interestData, trashData] = await Promise.all([
+        api.get("/dashboard/idea-owner"),
+        api.get("/interests/received").catch(() => []),
+        api.get("/trashed-projects").catch(() => []),
+      ]);
+      setDashboard(dashData);
+      setInterests(interestData.data ?? interestData ?? []);
+      setTrashed(trashData.data ?? trashData ?? []);
+    } catch (err) {
+      setError(err.body?.message ?? "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  const myProjects = dashboard?.projects?.data ?? dashboard?.projects ?? [];
+  const statsData = dashboard?.stats ?? {};
+  const avgScore = statsData.avg_ai_score ?? 0;
+  const totalInterested = statsData.interests_total ?? 0;
+  const totalViews = statsData.total_views ?? 0;
 
   const stats = [
-    { key: "projects", value: myProjects.length, change: "+2", icon: FolderPlus },
-    { key: "avgScore", value: avgScore, change: "+6%", icon: Star },
-    { key: "interested", value: totalInterested, change: "+12%", icon: Heart },
-    { key: "views", value: totalViews, change: "+8%", icon: Eye },
+    { key: "projects", value: myProjects.length, change: null, icon: FolderPlus },
+    { key: "avgScore", value: Math.round(avgScore), change: null, icon: Star },
+    { key: "interested", value: totalInterested, change: null, icon: Heart },
+    { key: "views", value: totalViews, change: null, icon: Eye },
   ];
 
-  function handleReevaluate(projectId) {
+  async function handleReevaluate(projectId) {
     setEvaluating(projectId);
-    // Simulate queued AI re-evaluation (backend: Laravel Queue, < 120s P95).
-    window.setTimeout(() => {
-      setEvaluating(null);
+    try {
+      await api.post(`/projects/${projectId}/evaluate`);
       toast.success(t("owner.reevalQueued"));
-    }, 1400);
+    } catch {
+      toast.error(t("owner.reevalError"));
+    } finally {
+      setEvaluating(null);
+    }
   }
 
-  function handleDelete(projectId) {
-    setDeleted((d) => [...d, projectId]);
-    toast.warning(t("owner.deleted"), t("owner.trashHint"));
+  async function handleDelete(projectId) {
+    try {
+      await api.delete(`/projects/${projectId}`);
+      setDashboard((prev) => ({
+        ...prev,
+        projects: (prev?.projects?.data ?? prev?.projects ?? []).filter((p) => p.id !== projectId),
+      }));
+      toast.warning(t("owner.deleted"), t("owner.trashHint"));
+    } catch {
+      toast.error(t("owner.deleteError"));
+    }
   }
 
-  function handleRestore(projectId) {
-    setDeleted((d) => d.filter((id) => id !== projectId));
-    toast.success(t("owner.restored"));
+  async function handleRestore(projectId) {
+    try {
+      await api.post(`/trashed-projects/${projectId}/restore`);
+      setTrashed((prev) => prev.filter((p) => p.id !== projectId));
+      toast.success(t("owner.restored"));
+      fetchDashboard();
+    } catch {
+      toast.error(t("owner.restoreError"));
+    }
   }
 
-  function handleInterestAction(id, action) {
-    setInterests((prev) => prev.map((i) => (i.id === id ? { ...i, status: action === "accept" ? "agreed" : "contacted" } : i)));
-    toast.success(action === "accept" ? t("owner.accepted") : t("owner.declined"));
+  async function handleInterestAction(id, action) {
+    try {
+      if (action === "accept") {
+        await api.put(`/interests/${id}/accept`);
+      } else {
+        await api.put(`/interests/${id}/reject`);
+      }
+      setInterests((prev) =>
+        prev.map((i) =>
+          i.id === id ? { ...i, status: action === "accept" ? "agreed" : "rejected" } : i
+        )
+      );
+      toast.success(action === "accept" ? t("owner.accepted") : t("owner.declined"));
+    } catch {
+      toast.error(t("owner.actionError"));
+    }
   }
 
   const tabs = [
@@ -81,6 +131,32 @@ export default function OwnerDashboardPage() {
     { key: "interests", label: t("owner.tabs.interests") },
     { key: "trash", label: t("owner.tabs.trash") },
   ];
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton lines={3} />
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-border bg-surface-1 p-5">
+              <Skeleton lines={3} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={Trash}
+        title={t("owner.errorTitle")}
+        description={error}
+        action={<Button onClick={fetchDashboard}>{t("owner.retry")}</Button>}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,10 +188,12 @@ export default function OwnerDashboardPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-100">
                 <IconComponent size={20} weight="regular" className="text-primary-600" />
               </span>
-              <span className="flex items-center gap-1 text-xs font-semibold text-success">
-                <TrendUp size={14} weight="bold" aria-hidden />
-                {change}
-              </span>
+              {change && (
+                <span className="flex items-center gap-1 text-xs font-semibold text-success">
+                  <TrendUp size={14} weight="bold" aria-hidden />
+                  {change}
+                </span>
+              )}
             </div>
             <p className="mt-4 font-heading text-2xl font-bold text-text-primary">
               {formatNumber(value)}
@@ -148,74 +226,82 @@ export default function OwnerDashboardPage() {
       {/* ===== My projects ===== */}
       {tab === "projects" && (
         <div className="overflow-x-auto rounded-xl border border-border bg-surface-1 shadow-sm">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                <th className="px-5 py-3.5 text-start">{t("owner.table.title")}</th>
-                <th className="px-5 py-3.5 text-start">{t("owner.table.score")}</th>
-                <th className="px-5 py-3.5 text-start">{t("owner.table.status")}</th>
-                <th className="px-5 py-3.5 text-start">{t("owner.table.interested")}</th>
-                <th className="px-5 py-3.5 text-start">{t("owner.table.updated")}</th>
-                <th className="px-5 py-3.5 text-end">{t("owner.table.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myProjects.map((p) => (
-                <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-surface-0/60">
-                  <td className="px-5 py-4">
-                    <Link href={`/projects/${p.id}`} className="font-heading font-semibold text-text-primary hover:text-primary-600">
-                      {locale === "ar" ? p.title.ar : p.title.en}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-4">
-                    <AIScoreBadge score={p.aiScore} showLabel={false} />
-                  </td>
-                  <td className="px-5 py-4 text-text-secondary">
-                    {locale === "ar" ? statusLabels[p.status].ar : statusLabels[p.status].en}
-                  </td>
-                  <td className="px-5 py-4 font-medium text-text-primary">{p.interested}</td>
-                  <td className="px-5 py-4 text-text-secondary">
-                    {format.dateTime(new Date(p.createdAt), { dateStyle: "medium" })}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link href={`/projects/${p.id}`}>
-                        <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600" aria-label={t("owner.view")}>
-                          <Eye size={18} />
-                        </button>
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => toast.info(t("owner.editSoon"))}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
-                        aria-label={t("owner.edit")}
-                      >
-                        <PencilSimple size={18} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleReevaluate(p.id)}
-                        disabled={evaluating === p.id}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600 disabled:opacity-50"
-                        aria-label={t("owner.reevaluate")}
-                        title={t("owner.reevaluate")}
-                      >
-                        <ArrowCounterClockwise size={18} className={cn(evaluating === p.id && "animate-spin")} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p.id)}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-tint-danger hover:text-danger"
-                        aria-label={t("owner.delete")}
-                      >
-                        <Trash size={18} />
-                      </button>
-                    </div>
-                  </td>
+          {myProjects.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                icon={FolderPlus}
+                title={t("owner.noProjects")}
+                description={t("owner.noProjectsDesc")}
+                action={
+                  <Link href="/projects/new">
+                    <Button>{t("owner.newProject")}</Button>
+                  </Link>
+                }
+              />
+            </div>
+          ) : (
+            <table className="w-full min-w-[760px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                  <th className="px-5 py-3.5 text-start">{t("owner.table.title")}</th>
+                  <th className="px-5 py-3.5 text-start">{t("owner.table.score")}</th>
+                  <th className="px-5 py-3.5 text-start">{t("owner.table.status")}</th>
+                  <th className="px-5 py-3.5 text-end">{t("owner.table.actions")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {myProjects.map((p) => (
+                  <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-surface-0/60">
+                    <td className="px-5 py-4">
+                      <Link href={`/projects/${p.id}`} className="font-heading font-semibold text-text-primary hover:text-primary-600">
+                        {p.title}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-4">
+                      <AIScoreBadge score={p.ai_score ?? 0} showLabel={false} />
+                    </td>
+                    <td className="px-5 py-4 text-text-secondary">
+                      {p.status ?? "draft"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/projects/${p.id}`}>
+                          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600" aria-label={t("owner.view")}>
+                            <Eye size={18} />
+                          </button>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => toast.info(t("owner.editSoon"))}
+                          className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
+                          aria-label={t("owner.edit")}
+                        >
+                          <PencilSimple size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReevaluate(p.id)}
+                          disabled={evaluating === p.id}
+                          className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600 disabled:opacity-50"
+                          aria-label={t("owner.reevaluate")}
+                        >
+                          <ArrowCounterClockwise size={18} className={cn(evaluating === p.id && "animate-spin")} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id)}
+                          className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-tint-danger hover:text-danger"
+                          aria-label={t("owner.delete")}
+                        >
+                          <Trash size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -230,11 +316,10 @@ export default function OwnerDashboardPage() {
             />
           ) : (
             interests.map((req) => {
-              const project = projects.find((p) => p.id === req.projectId);
               const statusStyle =
-                req.status === "new"
+                req.status === "pending"
                   ? "bg-tint-warning text-warning-ink"
-                  : req.status === "agreed"
+                  : req.status === "accepted" || req.status === "agreed"
                     ? "bg-tint-success text-success-ink"
                     : "bg-accent-100 text-primary-600";
               return (
@@ -244,12 +329,14 @@ export default function OwnerDashboardPage() {
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 font-heading text-sm font-bold text-white">
-                      {req.investor.trim().charAt(0)}
+                      {(req.investor?.name ?? req.investor_name ?? "?").trim().charAt(0)}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate font-heading font-semibold text-text-primary">{req.investor}</p>
+                      <p className="truncate font-heading font-semibold text-text-primary">
+                        {req.investor?.name ?? req.investor_name ?? t("owner.unknownInvestor")}
+                      </p>
                       <p className="truncate text-sm text-text-secondary">
-                        {req.company} · {project ? (locale === "ar" ? project.title.ar : project.title.en) : "—"}
+                        {req.project?.title ?? `Project #${req.project_id}`}
                       </p>
                     </div>
                   </div>
@@ -257,23 +344,16 @@ export default function OwnerDashboardPage() {
                     <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", statusStyle)}>
                       {t(`owner.requestStatus.${req.status}`)}
                     </span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleInterestAction(req.id, "accept")}
-                        disabled={req.status === "agreed"}
-                      >
-                        {t("owner.accept")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleInterestAction(req.id, "decline")}
-                        disabled={req.status === "agreed"}
-                      >
-                        {t("owner.decline")}
-                      </Button>
-                    </div>
+                    {req.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleInterestAction(req.id, "accept")}>
+                          {t("owner.accept")}
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => handleInterestAction(req.id, "reject")}>
+                          {t("owner.decline")}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -282,66 +362,37 @@ export default function OwnerDashboardPage() {
         </div>
       )}
 
-      {/* ===== Trash (30-day recovery) ===== */}
+      {/* ===== Trash ===== */}
       {tab === "trash" && (
         <div className="space-y-3">
           <p className="rounded-lg bg-tint-warning px-4 py-3 text-sm text-warning-ink">
             {t("owner.trashNote")}
           </p>
-          {deleted.length === 0 ? (
+          {trashed.length === 0 ? (
             <EmptyState icon={Trash} title={t("owner.trashEmpty")} />
           ) : (
-            deleted.map((id) => {
-              const p = projects.find((x) => x.id === id);
-              if (!p) return null;
-              return (
-                <div
-                  key={id}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface-0 text-text-secondary">
-                      <Trash size={20} aria-hidden />
-                    </span>
-                    <p className="font-heading font-semibold text-text-primary">
-                      {locale === "ar" ? p.title.ar : p.title.en}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => handleRestore(id)}>
-                      <ArrowCounterClockwise size={16} />
-                      {t("owner.restore")}
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => setDeleted((d) => d.filter((x) => x !== id))}>
-                      <Trash size={16} />
-                      {t("owner.deleteForever")}
-                    </Button>
-                  </div>
+            trashed.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface-0 text-text-secondary">
+                    <Trash size={20} aria-hidden />
+                  </span>
+                  <p className="font-heading font-semibold text-text-primary">{p.title}</p>
                 </div>
-              );
-            })
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => handleRestore(p.id)}>
+                    <ArrowCounterClockwise size={16} />
+                    {t("owner.restore")}
+                  </Button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}
-
-      {/* ===== Quick stats strip ===== */}
-      <div className="rounded-xl border border-border bg-surface-1 p-5">
-        <h2 className="flex items-center gap-2 font-heading text-base font-bold text-text-primary">
-          <ChartLineUp size={20} className="text-primary-600" aria-hidden />
-          {t("owner.insights")}
-        </h2>
-        <div className="mt-4 flex h-32 items-end gap-2" aria-hidden>
-          {myProjects.map((p) => (
-            <div key={p.id} className="group relative flex-1">
-              <div
-                className="w-full rounded-t-md bg-gradient-to-t from-primary-600 to-primary-500 transition-all group-hover:opacity-80"
-                style={{ height: `${p.aiScore}%`, minHeight: 12 }}
-              />
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-text-secondary">{t("owner.insightsNote")}</p>
-      </div>
     </div>
   );
 }

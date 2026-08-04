@@ -466,6 +466,10 @@
       "accepted": "Request accepted — agreement PDF generated and email revealed",
       "declined": "Request declined",
       "requestStatus": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled",
         "new": "New",
         "contacted": "Contacted",
         "agreed": "Agreed"
@@ -478,6 +482,8 @@
       "trashEmpty": "Trash is empty",
       "restore": "Restore",
       "deleteForever": "Delete forever",
+      "projectsEmpty": "No projects yet",
+      "projectsEmptyDesc": "Upload your first project and let AI evaluate it for investors",
       "insights": "Your scores over time",
       "insightsNote": "Illustrative bars of your projects' average scores per month",
       "editSoon": "The edit page will be available once the backend is connected"
@@ -509,7 +515,8 @@
       "interestStatus": {
         "pending": "Pending",
         "accepted": "Accepted",
-        "rejected": "Rejected"
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
       },
       "agreement": "Agreement",
       "agreementSoon": "The PDF agreement will be available once the owner accepts",
