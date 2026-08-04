@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { cn } from "@/lib/utils";
 
-type Role = "owner" | "investor";
+type Role = "idea_owner" | "investor";
 
 const inputClasses =
   "w-full rounded-lg border border-border bg-surface-1 px-4 py-3 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20";
@@ -29,7 +29,7 @@ export default function RegisterPage() {
   const toast = useToast();
   const router = useRouter();
 
-  const [role, setRole] = useState<Role>("owner");
+  const [role, setRole] = useState<Role>("idea_owner");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,7 +64,7 @@ export default function RegisterPage() {
   }
 
   const roles: { key: Role; icon: typeof Lightbulb; label: string; description: string }[] = [
-    { key: "owner", icon: Lightbulb, label: t("roleOwner"), description: t("roleOwnerDesc") },
+    { key: "idea_owner", icon: Lightbulb, label: t("roleOwner"), description: t("roleOwnerDesc") },
     { key: "investor", icon: Wallet, label: t("roleInvestor"), description: t("roleInvestorDesc") },
   ];
 

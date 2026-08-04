@@ -364,7 +364,9 @@
     "project": {
       "team": {
         "member": "عضو فريق تقني",
-        "lead": "عضو فريق تسويق"
+        "lead": "عضو فريق تسويق",
+        "memberRole": "هندسة",
+        "leadRole": "نمو"
       }
     },
     "wizard": {

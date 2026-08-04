@@ -29,6 +29,8 @@
     "auth.admin_registration_forbidden": "Admin accounts cannot be created via public registration",
     "auth.oauth_redirect": "Redirecting to the provider",
     "auth.oauth_failed": "Provider authentication failed",
+    "auth.oauth_invalid_state": "Invalid authentication request — please start over",
+    "auth.role_set": "Your role has been set successfully",
     "auth.provider_email_required": "This provider did not share your email — try another provider",
     "auth.reset_link_sent": "If the email is registered, a reset link will be sent",
     "auth.invalid_reset_token": "Link expired or invalid (valid for 1 hour)",

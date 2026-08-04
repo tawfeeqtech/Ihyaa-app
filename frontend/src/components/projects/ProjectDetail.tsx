@@ -88,8 +88,8 @@ export function ProjectDetail({ project }: { project: Project }) {
 
   const team = [
     { name: project.owner.name, role: locale === "ar" ? project.owner.role.ar : project.owner.role.en },
-    { name: t("project.team.member"), role: "Engineering" },
-    { name: t("project.team.lead"), role: "Growth" },
+    { name: t("project.team.member"), role: t("project.team.memberRole") },
+    { name: t("project.team.lead"), role: t("project.team.leadRole") },
   ];
 
   function handleInterested() {
@@ -303,7 +303,7 @@ export function ProjectDetail({ project }: { project: Project }) {
                     </section>
 
                     {/* SWOT */}
-                    <section aria-label="SWOT">
+                    <section aria-label={t("report.swot")}>
                       <h3 className="mb-4 font-heading text-lg font-bold">{t("report.swot")}</h3>
                       <div className="grid gap-4 sm:grid-cols-2">
                         {(

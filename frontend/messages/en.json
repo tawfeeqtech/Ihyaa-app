@@ -364,7 +364,9 @@
     "project": {
       "team": {
         "member": "Engineering lead",
-        "lead": "Growth lead"
+        "lead": "Growth lead",
+        "memberRole": "Engineering",
+        "leadRole": "Growth"
       }
     },
     "wizard": {

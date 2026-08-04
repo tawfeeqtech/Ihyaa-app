@@ -39,6 +39,9 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware(['rate.violations', 'throttle:api.login']);         // SRS-API-02 · RL-AUTH-02 · 5/دقيقة · email
 
+Route::post('/email/resend', [AuthController::class, 'resendOtp'])
+    ->middleware('throttle:api.otp');                                // إعادة إرسال رمز التفعيل · عام · 3/دقيقة
+
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
     ->middleware('throttle:api.forgot');                             // SRS-API-05 · RL-AUTH-05 · 2/دقيقة · email
 
@@ -49,6 +52,12 @@ Route::get('/auth/{provider}', [AuthController::class, 'redirectToProvider'])
     ->whereIn('provider', ['google', 'github', 'linkedin'])
     ->middleware('throttle:api.oauth');                              // SRS-API-07 · RL-AUTH-07 · 5/دقيقة · IP
 
+// GET: المزوّد يُعيد التوجيه مباشرة بعد المصادقة (OAuth2 standard redirect)
+Route::get('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback'])
+    ->whereIn('provider', ['google', 'github', 'linkedin'])
+    ->middleware('throttle:api.oauth');
+
+// POST: الواجهة الأمامية (SPA) ترسل الكود للمعالجة
 Route::post('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback'])
     ->whereIn('provider', ['google', 'github', 'linkedin'])
     ->middleware('throttle:api.oauth');                              // SRS-API-08 · RL-AUTH-08 · 5/دقيقة · IP
@@ -94,6 +103,11 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
         ->middleware('throttle:api.otp');                            // SRS-API-04 · RL-AUTH-04 · 3/دقيقة · email
     // Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
+
+    // تثبيت الدور بعد أول دخول OAuth — مصادق + role.pending (role = null فقط)
+    Route::post('/auth/{provider}/role', [AuthController::class, 'finalizeRole'])
+        ->whereIn('provider', ['google', 'github', 'linkedin'])
+        ->middleware(['role.pending', 'throttle:api.oauth']);        // SRS-F01-07 · RL-AUTH-07 · 5/دقيقة
 
     Route::get('/me', [AuthController::class, 'me'])
         ->middleware('throttle:shared.read');

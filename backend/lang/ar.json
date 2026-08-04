@@ -29,6 +29,8 @@
     "auth.admin_registration_forbidden": "لا يمكن إنشاء حساب مشرف بالتسجيل العام",
     "auth.oauth_redirect": "تم تحويلك إلى مزود المصادقة",
     "auth.oauth_failed": "فشلت المصادقة عبر المزود الخارجي",
+    "auth.oauth_invalid_state": "طلب مصادقة غير صالح — أعد المحاولة من البداية",
+    "auth.role_set": "تم تثبيت دورك بنجاح",
     "auth.provider_email_required": "هذا المزود لم يشارك بريدك الإلكتروني — جرّب مزوداً آخر",
     "auth.reset_link_sent": "إذا كان البريد مسجلاً لدينا، ستصل رسالة إعادة التعيين",
     "auth.invalid_reset_token": "الرابط منتهٍ أو غير صالح (الصلاحية ساعة واحدة)",

@@ -35,4 +35,28 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth2 — Socialite (SRS-F01-07)
+    | Google / GitHub / LinkedIn OpenID Connect
+    |--------------------------------------------------------------------------
+    */
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect'      => env('GOOGLE_REDIRECT_URI', '/api/auth/google/callback'),
+    ],
+
+    'github' => [
+        'client_id'     => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect'      => env('GITHUB_REDIRECT_URI', '/api/auth/github/callback'),
+    ],
+
+    'linkedin-openid' => [
+        'client_id'     => env('LINKEDIN_CLIENT_ID'),
+        'client_secret' => env('LINKEDIN_CLIENT_SECRET'),
+        'redirect'      => env('LINKEDIN_REDIRECT_URI', '/api/auth/linkedin/callback'),
+    ],
+
 ];

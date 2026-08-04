@@ -55,6 +55,7 @@ return new class extends Migration
             $table->index(['status', 'created_at']);         // الفرز حسب الأحدث
             $table->index(['status', 'view_count']);         // الفرز حسب المشاهدات
             $table->index(['publication_status', 'deleted_at']); // معرض المشاريع المنشورة
+            $table->index('created_at');                     // latest('created_at') — قائمة المشاريع العامة (SRS-F07)
 
         });
 

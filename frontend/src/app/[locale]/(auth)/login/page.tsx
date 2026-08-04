@@ -13,7 +13,7 @@ const inputClasses =
   "w-full rounded-lg border border-border bg-surface-1 px-4 py-3 ps-11 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20";
 
 /** Demo login — sets the auth cookies the middleware checks (Laravel will do this for real). */
-function mockLogin(name: string, role: "owner" | "investor", remember: boolean) {
+function mockLogin(name: string, role: "idea_owner" | "investor", remember: boolean) {
   const maxAge = remember ? "max-age=2592000" : "max-age=86400";
   document.cookie = `ihyaa_token=demo;path=/;${maxAge};samesite=lax`;
   document.cookie = `ihyaa_role=${role};path=/;${maxAge};samesite=lax`;
@@ -51,11 +51,12 @@ export default function LoginPage() {
     // Simulate an API round-trip; replace with POST /api/v1/login in Sprint 1.
     window.setTimeout(() => {
       const name = email.split("@")[0] === "investor" ? "Investor Demo" : "صاحب فكرة";
-      const role = email.includes("investor") ? ("investor" as const) : ("owner" as const);
+      const role = email.includes("investor") ? ("investor" as const) : ("idea_owner" as const);
       mockLogin(name, role, remember);
       toast.success(t("loginSuccess"));
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next && !next.startsWith("/login") ? next : `/dashboard/${role}`);
+      const dashboardPath = role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
+      router.push(next && !next.startsWith("/login") ? next : dashboardPath);
     }, 600);
   }
 

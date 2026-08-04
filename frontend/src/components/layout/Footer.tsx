@@ -70,17 +70,17 @@ export function Footer() {
           </h3>
           <ul className="space-y-2.5 text-sm">
             <li>
-              <Link href="/login" className="text-text-secondary transition-colors hover:text-primary-600">
+              <Link href="/#" className="text-text-secondary transition-colors hover:text-primary-600">
                 {t("terms")}
               </Link>
             </li>
             <li>
-              <Link href="/login" className="text-text-secondary transition-colors hover:text-primary-600">
+              <Link href="/#" className="text-text-secondary transition-colors hover:text-primary-600">
                 {t("privacy")}
               </Link>
             </li>
             <li>
-              <Link href="/login" className="text-text-secondary transition-colors hover:text-primary-600">
+              <Link href="/#" className="text-text-secondary transition-colors hover:text-primary-600">
                 {t("agreement")}
               </Link>
             </li>

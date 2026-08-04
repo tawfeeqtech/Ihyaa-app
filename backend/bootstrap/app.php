@@ -4,6 +4,7 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureEmailVerified;
 use App\Http\Middleware\IdeaOwnerMiddleware;
 use App\Http\Middleware\InvestorMiddleware;
+use App\Http\Middleware\PendingRoleMiddleware;
 use App\Http\Middleware\RefreshSanctumToken;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\TrackRateLimitViolations;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'email.verified' => EnsureEmailVerified::class,
             'token.refresh' => RefreshSanctumToken::class,
             'rate.violations' => TrackRateLimitViolations::class,
+            'role.pending' => PendingRoleMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

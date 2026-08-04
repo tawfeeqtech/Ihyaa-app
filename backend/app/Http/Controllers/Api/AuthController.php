@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Laravel\Socialite\Facades\Socialite;
@@ -204,17 +205,60 @@ class AuthController
 
     // ——————————————————————— OAuth (SRS-F01-07 · RL-AUTH-07/08 · 5/دقيقة) ———————————————————————
 
+    /**
+     * تحويل اسم المزوّد من الرابط العام إلى اسم Socialite الداخلي.
+     * LinkedIn الجديد يستخدم OpenID Connect ← driver اسمه linkedin-openid.
+     */
+    private function resolveProvider(string $provider): string
+    {
+        return match ($provider) {
+            'linkedin' => 'linkedin-openid',
+            default    => $provider, // google, github
+        };
+    }
+
     public function redirectToProvider(string $provider): JsonResponse
     {
-        $url = Socialite::driver($provider)->stateless()->redirect()->getTargetUrl();
+        // CSRF state — يُخزَّن في Redis بصلاحية 10 دقائق ويُستهلك في callback (استهلاك لمرة واحدة)
+        $state = Str::random(40);
+
+        Redis::setex('oauth_state:'.$state, 600, $provider);
+
+        $url = Socialite::driver($this->resolveProvider($provider))
+            ->stateless()
+            ->with(['state' => $state])
+            ->redirect()
+            ->getTargetUrl();
 
         return $this->success(['redirect_url' => $url], __('auth.oauth_redirect'));
     }
 
     public function handleProviderCallback(string $provider, Request $request): JsonResponse
     {
+        // فحص state — يمنع تزوير إعادة التوجيه (CSRF). المفتاح يُستهلك من Redis مرة واحدة.
+        $state = $request->input('state');
+
+        if ($state === null) {
+            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        }
+
+        $storedProvider = Redis::get('oauth_state:'.$state);
+
+        if ($storedProvider === null) {
+            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        }
+
+        // استهلاك لمرة واحدة — لا يمكن إعادة استخدام نفس state
+        Redis::del('oauth_state:'.$state);
+
+        if ($storedProvider !== $provider) {
+            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        }
+
         try {
-            $socialUser = Socialite::driver($provider)->stateless()->user();
+            $socialUser = Socialite::driver($this->resolveProvider($provider))
+                ->stateless()
+                ->user();
         } catch (\Throwable $e) {
             return $this->error('OAUTH_FAILED', __('auth.oauth_failed'), 401);
         }
@@ -256,12 +300,53 @@ class AuthController
 
         $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
 
+        $roleRequired = $user->role === null; // أول دخول OAuth — يختار الدور (SRS-F01-07)
+
         return $this->success([
             'token' => $token->plainTextToken,
             'token_expires_at' => now()->addHours(User::TOKEN_EXPIRY_HOURS)->toISOString(),
             'user' => $user->toApiArray(),
-            'role_required' => $user->role === null, // أول دخول OAuth — يختار الدور (SRS-F01-07)
+            'role_required' => $roleRequired,
+            // state موقع (HMAC) — يرسله العميل إلى POST /auth/{provider}/role لتثبيت الدور
+            'role_setup_state' => $roleRequired
+                ? hash_hmac('sha256', $user->id.'|'.$provider, (string) config('app.key'))
+                : null,
         ], __('auth.logged_in'));
+    }
+
+    /**
+     * تثبيت الدور بعد أول دخول OAuth — POST /auth/{provider}/role (SRS-F01-07).
+     * route داخل auth:sanctum + role.pending (role = null فقط).
+     * يتحقق من state الموقّع (HMAC) قبل التعيين — يمنع تعيين الدور دون إكمال تدفق OAuth.
+     */
+    public function finalizeRole(string $provider, Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'role' => ['required', Rule::enum(UserRole::class)],
+            'state' => ['required', 'string'],
+        ]);
+
+        $role = UserRole::from($data['role']);
+
+        // admin لا يُثبَّت عبر هذا المسار — مثل التسجيل العام (SRS §1.2)
+        if ($role->isAdmin()) {
+            return $this->error('FORBIDDEN', __('auth.admin_registration_forbidden'), 403);
+        }
+
+        // التحقق من state الموقّع — يجب أن يطابق ما رجع في استجابة callback
+        $expected = hash_hmac('sha256', $user->id.'|'.$provider, (string) config('app.key'));
+
+        if (! hash_equals($expected, $data['state'])) {
+            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        }
+
+        $user->setRole($role);
+
+        return $this->success([
+            'user' => $user->fresh()->toApiArray(),
+        ], __('auth.role_set'));
     }
 
     // ——————————————————————— إعادة تعيين كلمة المرور (SRS-F01-04 · ساعة واحدة) ———————————————————————

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -150,13 +151,17 @@ class User extends Authenticatable
 
     // ——————————————————————— OTP (6 أرقام — دقيقة واحدة) ———————————————————————
 
-    /** إنشاء رمز OTP جديد (صلاحية 60 ثانية) وإرساله بالبريد. */
+    /**
+     * إنشاء رمز OTP جديد (صلاحية 60 ثانية) وإرساله بالبريد.
+     * الرمز يُخزَّن مشفَّراً (bcrypt) — لم يعد plaintext في قاعدة البيانات.
+     * plaintext يُرسل بالبريد فقط ولا يُحفظ.
+     */
     public function generateOtp(): string
     {
         $code = (string) random_int(100000, 999999);
 
         $this->forceFill([
-            'otp_code' => $code,
+            'otp_code' => Hash::make($code),
             'otp_expires_at' => now()->addSeconds(self::OTP_EXPIRY_SECONDS),
             'otp_attempts' => 0,
             'otp_last_sent_at' => now(),
@@ -181,7 +186,8 @@ class User extends Authenticatable
             return false;
         }
 
-        if (! hash_equals((string) $this->otp_code, $code)) {
+        // OTP مخزّن ببصمة bcrypt — التحقق يتم عبر Hash::check وليس مقارنة plaintext
+        if (! Hash::check($code, (string) $this->otp_code)) {
             $this->increment('otp_attempts');
 
             return false;
