@@ -54,3 +54,4 @@ coverage/
 
 # Debug
 dump.rdb
+.claude/worktrees/
