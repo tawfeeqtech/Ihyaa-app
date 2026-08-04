@@ -7,6 +7,7 @@ import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
 import { OAuthButtons } from "@/features/auth/components/OAuthButtons";
+import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/utils";
 
 const inputClasses =
@@ -44,7 +45,7 @@ export default function RegisterPage() {
     t("strength.strong"),
   ];
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
 
@@ -54,11 +55,29 @@ export default function RegisterPage() {
     if (!terms) return setError(t("errors.termsRequired"));
 
     setLoading(true);
-    // Simulate API round-trip; replace with POST /api/v1/register in Sprint 1.
-    window.setTimeout(() => {
+    try {
+      await api.post("/register", {
+        name: name.trim(),
+        email,
+        password,
+        password_confirmation: password,
+        role,
+      });
+
       toast.success(t("registerSuccess"));
-      router.push("/login");
-    }, 700);
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      const body = err.body;
+      // Laravel returns validation errors as { errors: { field: [messages] } }
+      const msg =
+        body?.message ??
+        (body?.errors
+          ? Object.values(body.errors).flat().join(". ")
+          : t("errors.generic"));
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const roles = [
@@ -180,7 +199,6 @@ export default function RegisterPage() {
           />
           <span>
             {t("termsPrefix")}{" "}
-            {/* Placeholder — a dedicated /terms page is pending (US-001) */}
             <Link href="/#" className="font-medium text-primary-600 hover:underline">
               {t("termsLink")}
             </Link>

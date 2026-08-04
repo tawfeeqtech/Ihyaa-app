@@ -117,7 +117,10 @@
       "invalidEmail": "Please enter a valid email address",
       "shortPassword": "Password must be at least 6 characters",
       "termsRequired": "You must accept the Terms of Service to continue",
-      "otpIncomplete": "Please enter the 6-digit code"
+      "otpIncomplete": "Please enter the 6-digit code",
+      "invalidCredentials": "Incorrect email or password.",
+      "accountDisabled": "This account has been disabled. Please contact support.",
+      "generic": "Something went wrong. Please try again."
     },
     "forgotTitle": "Forgot your password?",
     "forgotSubtitle": "Enter your email and we will send you a 6-digit verification code",

@@ -69,13 +69,13 @@ export function AuthProvider({ children }) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const login = useCallback((next, remember = false) => {
+  const login = useCallback((token, user, remember = false) => {
     const maxAge = remember ? `max-age=${MAX_AGE_MONTH}` : `max-age=${MAX_AGE_DAY}`;
-    document.cookie = `${AUTH_COOKIE}=demo;path=/;${maxAge};samesite=lax`;
-    document.cookie = `${ROLE_COOKIE}=${next.role};path=/;${maxAge};samesite=lax`;
-    document.cookie = `${NAME_COOKIE}=${encodeURIComponent(next.name)};path=/;${maxAge};samesite=lax`;
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
+    document.cookie = `${AUTH_COOKIE}=${token};path=/;${maxAge};samesite=lax`;
+    document.cookie = `${ROLE_COOKIE}=${user.role};path=/;${maxAge};samesite=lax`;
+    document.cookie = `${NAME_COOKIE}=${encodeURIComponent(user.name)};path=/;${maxAge};samesite=lax`;
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify({ name: user.name, role: user.role }));
+    setUser({ name: user.name, role: user.role });
   }, []);
 
   const logout = useCallback(() => {

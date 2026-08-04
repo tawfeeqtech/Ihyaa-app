@@ -12,7 +12,7 @@ import { useToast } from "@/shared/components/Toast";
 import { Button } from "@/shared/components/Button";
 import { cn } from "@/shared/utils";
 
-export function Header({ authed = false }) {
+export function Header({ authed = false, role = "idea_owner" }) {
   const t = useTranslations("nav");
   const common = useTranslations("common");
   const { theme, toggle } = useTheme();
@@ -79,7 +79,7 @@ export function Header({ authed = false }) {
           {authed ? (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                href="/dashboard"
+                href={role === "investor" ? "/dashboard/investor" : "/dashboard/owner"}
                 className="inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-1"
               >
                 <UserCircle size={20} className="text-primary-600" />
@@ -140,7 +140,7 @@ export function Header({ authed = false }) {
               <div className="flex flex-col gap-2 border-t border-border pt-3">
                 {authed ? (
                   <>
-                    <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                    <Link href={role === "investor" ? "/dashboard/investor" : "/dashboard/owner"} onClick={() => setMobileOpen(false)}>
                       <Button fullWidth variant="secondary">
                         {t("dashboard")}
                       </Button>

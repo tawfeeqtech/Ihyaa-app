@@ -11,6 +11,7 @@ import {
 import { routing } from "@/config/i18n/routing";
 import { ThemeProvider } from "@/shared/lib/ThemeProvider";
 import { ToastProvider } from "@/shared/components/Toast";
+import { AuthProvider } from "@/features/auth/context/AuthProvider";
 import "../globals.css";
 
 /* Mandated fonts (design-decisions.md §1.2) — no Inter/Roboto/system-ui */
@@ -87,7 +88,7 @@ export default async function LocaleLayout({ children, params }) {
     <html
       lang={locale}
       dir={dir}
-      className={`${ibmPlexSansArabic.variable} ${notoNaskhArabic.variable} ${spaceGrotesk.variable} ${sourceSerif4.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${locale === 'ar' ? 'rtl' : 'ltr'} ${ibmPlexSansArabic.variable} ${notoNaskhArabic.variable} ${spaceGrotesk.variable} ${sourceSerif4.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -101,7 +102,9 @@ export default async function LocaleLayout({ children, params }) {
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
           <NextIntlClientProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <AuthProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </AuthProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>

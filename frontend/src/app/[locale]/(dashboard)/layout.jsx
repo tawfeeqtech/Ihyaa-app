@@ -17,12 +17,12 @@ export default async function DashboardLayout({ children }) {
 
   const authed = Boolean(cookieStore.get("ihyaa_token")?.value);
   const rawRole = cookieStore.get("ihyaa_role")?.value;
-  const role = rawRole === "investor" ? "investor" : "owner";
+  const role = rawRole === "investor" ? "investor" : "idea_owner";
   const userName = cookieStore.get("ihyaa_name")?.value ?? t("guest");
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header authed={authed} />
+      <Header authed={authed} role={role} />
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {/* Mobile quick-nav (sidebar is desktop-only) */}

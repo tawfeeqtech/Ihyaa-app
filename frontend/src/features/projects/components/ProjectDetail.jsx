@@ -26,13 +26,13 @@ import { SkeletonText } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
 import { projects, sectorLabels, statusLabels } from "@/features/projects/data/projects";
+import { api } from "@/shared/lib/api";
 import { avatarHue, cn, initials } from "@/shared/utils";
 
-/** Demo auth detection — reads the (non-httpOnly) demo cookie set at login. */
+/** Auth detection via cookie check (deferred to avoid hydration mismatch). */
 function useDemoAuth() {
   const [authed, setAuthed] = useState(false);
   useEffect(() => {
-    // Deferred read so SSR HTML and the first client render agree.
     const timer = window.setTimeout(() => {
       setAuthed(document.cookie.includes("ihyaa_token="));
     }, 0);
@@ -89,14 +89,22 @@ export function ProjectDetail({ project }) {
     { name: t("project.team.lead"), role: t("project.team.leadRole") },
   ];
 
-  function handleInterested() {
+  async function handleInterested() {
     if (!authed) {
       toast.info(t("detail.loginRequired"));
       router.push("/login");
       return;
     }
-    setInterestSent(true);
-    toast.success(t("detail.interestSent"));
+    try {
+      await api.post(`/projects/${project.id}/interest`, {
+        message: "",
+        type: "investment",
+      });
+      setInterestSent(true);
+      toast.success(t("detail.interestSent"));
+    } catch (err) {
+      toast.error(err.body?.message ?? t("detail.interestError"));
+    }
   }
 
   const CaretComponent = locale === "ar" ? CaretLeft : CaretRight;

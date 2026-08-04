@@ -38,6 +38,8 @@ export default function middleware(request) {
   const isProtected = PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
   const isAuthPage = AUTH_PAGES.some((p) => path === p);
 
+  const role = request.cookies.get(ROLE_COOKIE)?.value;
+
   // Guest → protected: redirect to login, remembering where they wanted to go.
   if (isProtected && !isAuthed) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
@@ -45,10 +47,16 @@ export default function middleware(request) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Bare /dashboard → redirect to role-specific dashboard.
+  if (isAuthed && path === "/dashboard") {
+    const target =
+      role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
+    return NextResponse.redirect(new URL(`/${locale}${target}`, request.url));
+  }
+
   // Role guard (US-006 / UC-01/E3): idea-owner and investor dashboards are
   // mutually exclusive — cross-role access redirects to the role's own
   // dashboard with `?error=unauthorized_role` for the layout toast.
-  const role = request.cookies.get(ROLE_COOKIE)?.value;
   const isOwnerDashboard = path === "/dashboard/owner" || path.startsWith("/dashboard/owner/");
   const isInvestorDashboard =
     path === "/dashboard/investor" || path.startsWith("/dashboard/investor/");

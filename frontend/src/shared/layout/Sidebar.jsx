@@ -35,7 +35,7 @@ export function Sidebar({ role, userName }) {
     { href: "/projects", label: t("exploreProjects"), icon: Compass },
   ];
 
-  const items = role === "owner" ? ownerItems : investorItems;
+  const items = role === "idea_owner" ? ownerItems : investorItems;
 
   function handleLogout() {
     document.cookie = "ihyaa_token=;path=/;max-age=0";
@@ -79,11 +79,11 @@ export function Sidebar({ role, userName }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-text-primary">{userName}</p>
-            <p className="text-xs text-text-secondary">{t(role === "owner" ? "roleOwner" : "roleInvestor")}</p>
+            <p className="text-xs text-text-secondary">{t(role === "idea_owner" ? "roleOwner" : "roleInvestor")}</p>
           </div>
         </div>
         <Link
-          href="/dashboard"
+          href={role === "idea_owner" ? "/dashboard/owner" : "/dashboard/investor"}
           className="flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-1 hover:text-text-primary"
         >
           <UserCircle size={20} />

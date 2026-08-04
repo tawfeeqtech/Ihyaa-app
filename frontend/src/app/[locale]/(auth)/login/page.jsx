@@ -7,25 +7,19 @@ import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
 import { OAuthButtons } from "@/features/auth/components/OAuthButtons";
+import { api } from "@/shared/lib/api";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { cn } from "@/shared/utils";
 
 const inputClasses =
   "w-full rounded-lg border border-border bg-surface-1 px-4 py-3 ps-11 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20";
-
-/** Demo login — sets the auth cookies the middleware checks (Laravel will do this for real). */
-function mockLogin(name, role, remember) {
-  const maxAge = remember ? "max-age=2592000" : "max-age=86400";
-  document.cookie = `ihyaa_token=demo;path=/;${maxAge};samesite=lax`;
-  document.cookie = `ihyaa_role=${role};path=/;${maxAge};samesite=lax`;
-  document.cookie = `ihyaa_name=${encodeURIComponent(name)};path=/;${maxAge};samesite=lax`;
-  localStorage.setItem("ihyaa_user", JSON.stringify({ name, role }));
-}
 
 export default function LoginPage() {
   const t = useTranslations("auth");
   const common = useTranslations("common");
   const toast = useToast();
   const router = useRouter();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +28,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
 
@@ -48,16 +42,34 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    // Simulate an API round-trip; replace with POST /api/v1/login in Sprint 1.
-    window.setTimeout(() => {
-      const name = email.split("@")[0] === "investor" ? "Investor Demo" : "صاحب فكرة";
-      const role = email.includes("investor") ? "investor" : "idea_owner";
-      mockLogin(name, role, remember);
+    try {
+      const data = await api.post("/login", {
+        email,
+        password,
+        remember: remember ? 1 : 0,
+      });
+
+      login(data.token, data.user, remember);
       toast.success(t("loginSuccess"));
+
       const next = new URLSearchParams(window.location.search).get("next");
-      const dashboardPath = role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
+      const dashboardPath =
+        data.user.role === "investor"
+          ? "/dashboard/investor"
+          : "/dashboard/owner";
       router.push(next && !next.startsWith("/login") ? next : dashboardPath);
-    }, 600);
+    } catch (err) {
+      const msg =
+        err.body?.message ??
+        (err.status === 401
+          ? t("errors.invalidCredentials")
+          : err.status === 403
+            ? t("errors.accountDisabled")
+            : t("errors.generic"));
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -166,7 +178,6 @@ export default function LoginPage() {
           {t("createAccount")}
         </Link>
       </p>
-      <p className="mt-2 text-center text-xs text-text-secondary">{common("demoNote")}</p>
     </div>
   );
 }
