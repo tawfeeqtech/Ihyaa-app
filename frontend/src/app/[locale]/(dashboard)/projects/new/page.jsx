@@ -17,7 +17,7 @@ import { Link } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
 import { api } from "@/shared/lib/api";
-import { sectorOptions, sectorLabels } from "@/features/projects/data/projects";
+import { CATEGORY_IDS, sectorOptions, sectorLabels } from "@/features/projects/data/projects";
 import { cn } from "@/shared/utils";
 
 const TOTAL_STEPS = 4;
@@ -72,29 +72,43 @@ export default function NewProjectPage() {
   }
 
   async function handlePublish() {
+    if (!stepValid()) {
+      toast.warning(t("wizard.incomplete"));
+      return;
+    }
     setSubmitting(true);
     try {
-      await api.post("/projects", {
+      // Backend requires 50–2000 chars — combine short + detailed descriptions.
+      const description = [form.description.trim(), form.details.trim()].filter(Boolean).join("\n\n");
+      const videoUrl = form.videoUrl.trim();
+      const videoProvider = videoUrl ? (/vimeo/i.test(videoUrl) ? "vimeo" : "youtube") : null;
+
+      const payload = {
         title: form.title.trim(),
-        description: form.description.trim(),
-        category_id: form.sector ? sectorOptions.findIndex((s) => s === form.sector) + 1 : null,
+        description,
+        category_id: CATEGORY_IDS[form.sector],
         status: form.status,
         publication_status: "published",
         tags: form.tags,
-        github_url: form.repoUrl || null,
-        video_url: form.videoUrl || null,
-        budget_min: form.status === "needs_funding" ? form.budget : null,
-        budget_max: null,
+        github_url: form.repoUrl.trim() || null,
+        video_url: videoUrl || null,
+        ...(videoProvider ? { video_provider: videoProvider } : {}),
+        budget_min: form.budget,
+        budget_max: form.budget,
         visibility_level: form.visibility === "public" ? 1 : 2,
-      });
-      setSubmitting(false);
+      };
+
+      await api.post("/projects", payload);
       setPublished(true);
       toast.success(t("wizard.published"));
     } catch (err) {
-      setSubmitting(false);
       const body = err.body;
-      const msg = body?.message ?? (body?.errors ? Object.values(body.errors).flat().join(". ") : t("wizard.error"));
+      const msg =
+        body?.message ??
+        (body?.errors ? Object.values(body.errors).flat().join(". ") : t("wizard.publishError"));
       toast.error(msg);
+    } finally {
+      setSubmitting(false);
     }
   }
 

@@ -12,224 +12,334 @@ import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { SkeletonCard } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { Button } from "@/shared/components/Button";
+import { Link } from "@/config/i18n/link";
 import { api } from "@/shared/lib/api";
+import { mapApiProject, sectorLabels, sectorOptions } from "@/features/projects/data/projects";
 import { cn } from "@/shared/utils";
 
 const PAGE_SIZE = 12;
-
-/** Adapt API project shape to what ProjectCard expects. */
-function mapProject(p) {
-  return {
-    id: p.id,
-    title: { ar: p.title, en: p.title },
-    description: { ar: p.description ?? "", en: p.description ?? "" },
-    sector: p.category?.slug ?? "tech",
-    aiScore: p.ai_score ?? 0,
-    status: p.status ?? "needs_funding",
-    interested: p.interested_count ?? 0,
-    views: p.view_count ?? 0,
-    budget: p.budget_min ?? 0,
-    createdAt: p.created_at ?? new Date().toISOString(),
-    owner: { name: p.owner?.name ?? "Unknown" },
-  };
-}
-
-const SORT_OPTIONS = [
-  { value: "newest", label: "sort.newest" },
-  { value: "score", label: "sort.score" },
-  { value: "popular", label: "sort.popular" },
-];
 
 export default function ProjectsGalleryPage() {
   const t = useTranslations("projects");
   const locale = useLocale();
 
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sector, setSector] = useState("all");
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState("grid");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState([]);
-  const [meta, setMeta] = useState(null);
+  const [items, setItems] = useState(null); // null while loading
+  const [meta, setMeta] = useState({ current_page: 1, per_page: PAGE_SIZE, total: 0, last_page: 1 });
+  const [suggestions, setSuggestions] = useState([]);
+
+  const loading = items === null;
+
+  /* Debounce the search query before hitting the API. */
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  /* Fetch search suggestions for the autocomplete dropdown. */
+  useEffect(() => {
+    let active = true;
+    const q = debouncedQuery.trim();
+    if (!q) return; // cleared by the search input handler
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await api.get(`/search/suggestions?q=${encodeURIComponent(q)}`);
+        if (active) setSuggestions(res?.data?.suggestions ?? []);
+      } catch {
+        if (active) setSuggestions([]);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [debouncedQuery]);
 
   const fetchProjects = useCallback(async () => {
-    setLoading(true);
     try {
-      const params = new URLSearchParams({
-        per_page: String(PAGE_SIZE),
-        page: String(page),
-        sort,
-      });
-      if (query.trim()) params.set("q", query.trim());
+      const params = new URLSearchParams();
+      const q = debouncedQuery.trim();
+      if (q) params.set("q", q);
       if (sector !== "all") params.set("category", sector);
+      if (sort === "topRated") {
+        params.set("sort", "ai_score");
+        params.set("direction", "desc");
+      } else if (sort === "mostViewed") {
+        params.set("sort", "view_count");
+        params.set("direction", "desc");
+      } else {
+        params.set("sort", "created_at");
+        params.set("direction", "desc");
+      }
+      params.set("page", String(page));
+      params.set("per_page", String(PAGE_SIZE));
 
-      const data = await api.get(`/projects?${params.toString()}`);
-      const list = Array.isArray(data) ? data : data?.data ?? [];
-      setProjects(list.map(mapProject));
-      setMeta(data?.meta ?? null);
+      const res = await api.get(`/projects?${params.toString()}`);
+      setItems((res?.data ?? []).map(mapApiProject));
+      setMeta(
+        res?.meta ?? {
+          current_page: page,
+          per_page: PAGE_SIZE,
+          total: (res?.data ?? []).length,
+          last_page: 1,
+        }
+      );
     } catch {
-      // Silently fall back — the empty state will show
-      setProjects([]);
-    } finally {
-      setLoading(false);
+      setItems([]);
+      setMeta({ current_page: 1, per_page: PAGE_SIZE, total: 0, last_page: 1 });
     }
-  }, [query, sector, sort, page]);
+  }, [debouncedQuery, sector, sort, page]);
 
   useEffect(() => {
-    fetchProjects();
+    // Async data fetch — setState happens after await, not synchronously.
+    fetchProjects(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [fetchProjects]);
 
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      fetchProjects();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query, sector]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const totalPages = meta?.last_page ?? 1;
+  const totalPages = Math.max(1, meta.last_page ?? 1);
+  const total = meta.total ?? 0;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold sm:text-3xl">{t("gallery.title")}</h1>
-        <p className="mt-1 text-text-secondary">{t("gallery.subtitle")}</p>
+      {/* Page header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold sm:text-3xl">{t("gallery.title")}</h1>
+          <p className="mt-1 text-text-secondary">{t("gallery.subtitle")}</p>
+        </div>
+        <Link href="/projects/new">
+          <Button size="md">{t("gallery.upload")}</Button>
+        </Link>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <MagnifyingGlass size={18} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("gallery.searchPlaceholder")}
-              className="w-full rounded-lg border border-border bg-surface-0 py-2.5 ps-10 pe-4 text-sm text-text-primary placeholder:text-text-secondary/70 focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20"
-            />
-          </div>
+      {/* Search */}
+      <div className="relative">
+        <MagnifyingGlass
+          size={20}
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 start-4 my-auto text-text-secondary"
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSuggestions([]);
+            setPage(1);
+          }}
+          placeholder={t("gallery.searchPlaceholder")}
+          aria-label={t("gallery.searchLabel")}
+          autoComplete="off"
+          className="h-14 w-full rounded-xl border border-border bg-surface-1 ps-12 pe-4 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20"
+        />
 
-          {/* Sector filter */}
-          <select
-            value={sector}
-            onChange={(e) => setSector(e.target.value)}
-            className="rounded-lg border border-border bg-surface-0 px-3 py-2.5 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
+        {/* Search suggestions */}
+        {suggestions.length > 0 && (
+          <ul
+            role="listbox"
+            aria-label={t("gallery.searchLabel")}
+            className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-border bg-surface-1 shadow-lg"
           >
-            <option value="all">{t("gallery.allSectors")}</option>
-            <option value="ai-ml">{t("sectors.ai_ml")}</option>
-            <option value="healthtech">{t("sectors.healthtech")}</option>
-            <option value="fintech">{t("sectors.fintech")}</option>
-            <option value="edtech">{t("sectors.edtech")}</option>
-            <option value="ecommerce">{t("sectors.ecommerce")}</option>
-            <option value="iot">{t("sectors.iot")}</option>
-            <option value="cleantech">{t("sectors.cleantech")}</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Sort */}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="rounded-lg border border-border bg-surface-0 px-3 py-2.5 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
-          >
-            {SORT_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{t(label)}</option>
+            {suggestions.map((s) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    setQuery(s);
+                    setSuggestions([]);
+                    setPage(1);
+                  }}
+                  className="flex min-h-12 w-full items-center gap-2 px-4 text-start text-sm text-text-primary transition-colors hover:bg-accent-100 hover:text-primary-600"
+                >
+                  <MagnifyingGlass size={16} className="shrink-0 text-text-secondary" aria-hidden />
+                  <span className="truncate">{s}</span>
+                </button>
+              </li>
             ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Filters + sort */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t("gallery.filters")}>
+          <FilterChip active={sector === "all"} onClick={() => { setSector("all"); setPage(1); }}>
+            {t("gallery.all")}
+          </FilterChip>
+          {sectorOptions.map((s) => (
+            <FilterChip
+              key={s}
+              active={sector === s}
+              onClick={() => {
+                setSector(s);
+                setPage(1);
+              }}
+            >
+              {locale === "ar" ? sectorLabels[s]?.ar : sectorLabels[s]?.en}
+            </FilterChip>
+          ))}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <FunnelSimple size={18} className="text-text-secondary" aria-hidden />
+          <label htmlFor="sort" className="sr-only">
+            {t("gallery.sort")}
+          </label>
+          <select
+            id="sort"
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+            className="h-12 rounded-lg border border-border bg-surface-1 px-3 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
+          >
+            <option value="newest">{t("gallery.sortNewest")}</option>
+            <option value="topRated">{t("gallery.sortTopRated")}</option>
+            <option value="mostViewed">{t("gallery.sortMostViewed")}</option>
           </select>
 
-          {/* View toggle */}
-          <button
-            type="button"
-            onClick={() => setView("grid")}
-            aria-pressed={view === "grid"}
-            aria-label={t("gallery.gridView")}
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-              view === "grid" ? "bg-primary-600 text-white" : "text-text-secondary hover:bg-surface-0"
-            )}
-          >
-            <SquaresFour size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            aria-pressed={view === "list"}
-            aria-label={t("gallery.listView")}
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-              view === "list" ? "bg-primary-600 text-white" : "text-text-secondary hover:bg-surface-0"
-            )}
-          >
-            <List size={18} />
-          </button>
+          <div className="flex overflow-hidden rounded-lg border border-border" role="group" aria-label={t("gallery.viewMode")}>
+            <button
+              type="button"
+              onClick={() => setView("grid")}
+              aria-pressed={view === "grid"}
+              className={cn(
+                "flex h-12 w-12 items-center justify-center transition-colors",
+                view === "grid" ? "bg-accent-100 text-primary-600" : "bg-surface-1 text-text-secondary hover:text-text-primary"
+              )}
+            >
+              <SquaresFour size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              aria-pressed={view === "list"}
+              className={cn(
+                "flex h-12 w-12 items-center justify-center border-s border-border transition-colors",
+                view === "list" ? "bg-accent-100 text-primary-600" : "bg-surface-1 text-text-secondary hover:text-text-primary"
+              )}
+            >
+              <List size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Results */}
       {loading ? (
-        <div className={cn(
-          "grid gap-5",
-          view === "grid" ? "sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
-        )}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div
+          className={cn(
+            "grid gap-6",
+            view === "grid" ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
+          )}
+        >
+          {Array.from({ length: 6 }, (_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : projects.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           icon={MagnifyingGlass}
-          title={t("gallery.noResults")}
-          description={t("gallery.noResultsDesc")}
+          title={t("gallery.emptyTitle")}
+          description={t("gallery.emptyDescription")}
           action={
             query || sector !== "all" ? (
-              <Button variant="secondary" onClick={() => { setQuery(""); setSector("all"); }}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setQuery("");
+                  setSector("all");
+                  setPage(1);
+                }}
+              >
                 {t("gallery.clearFilters")}
               </Button>
-            ) : null
+            ) : undefined
           }
         />
+      ) : view === "grid" ? (
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
+        </div>
       ) : (
-        <>
-          <div className={cn(
-            "grid gap-5",
-            view === "grid" ? "sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
-          )}>
-            {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} locale={locale} />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <nav aria-label={t("gallery.pagination")} className="flex items-center justify-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {t("gallery.prev")}
-              </Button>
-              <span className="text-sm text-text-secondary">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t("gallery.next")}
-              </Button>
-            </nav>
-          )}
-        </>
+        <ul className="space-y-4">
+          {items.map((project) => (
+            <li key={project.id}>
+              <ProjectCard project={project} />
+            </li>
+          ))}
+        </ul>
       )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <nav aria-label={t("gallery.pagination")} className="flex items-center justify-center gap-2 pt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            {t("gallery.prev")}
+          </Button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              aria-current={n === page ? "page" : undefined}
+              className={cn(
+                "min-h-12 w-12 rounded-lg font-heading text-sm font-semibold transition-colors",
+                n === page
+                  ? "bg-primary-600 text-white shadow-md"
+                  : "text-text-secondary hover:bg-surface-1"
+              )}
+            >
+              {n}
+            </button>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t("gallery.next")}
+          </Button>
+        </nav>
+      )}
+
+      <p className="text-center text-xs text-text-secondary">
+        {t("gallery.count", { count: total })}
+      </p>
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-300",
+        active
+          ? "border-primary-600 bg-primary-600 text-white shadow-md"
+          : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
+      )}
+    >
+      {children}
+    </button>
   );
 }

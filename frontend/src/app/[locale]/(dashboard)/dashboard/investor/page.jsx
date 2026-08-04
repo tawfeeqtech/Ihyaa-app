@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   BookmarkSimple,
+  CheckCircle,
   Compass,
+  DownloadSimple,
   Heart,
   SlidersHorizontal,
   TrendUp,
@@ -16,24 +18,8 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { Skeleton } from "@/shared/components/Skeleton";
 import { useToast } from "@/shared/components/Toast";
 import { api } from "@/shared/lib/api";
+import { mapApiProject, sectorLabels, sectorOptions } from "@/features/projects/data/projects";
 import { cn, formatNumber } from "@/shared/utils";
-
-/** Adapt API project shape to what ProjectCard expects. */
-function mapProject(p) {
-  return {
-    id: p.id,
-    title: { ar: p.title, en: p.title },
-    description: { ar: p.description ?? "", en: p.description ?? "" },
-    sector: p.category?.slug ?? "tech",
-    aiScore: p.ai_score ?? 0,
-    status: p.status ?? "needs_funding",
-    interested: p.interested_count ?? 0,
-    views: p.view_count ?? 0,
-    budget: p.budget_min ?? 0,
-    createdAt: p.created_at ?? new Date().toISOString(),
-    owner: { name: p.owner?.name ?? "Unknown" },
-  };
-}
 
 export default function InvestorDashboardPage() {
   const t = useTranslations("dashboard");
@@ -43,76 +29,114 @@ export default function InvestorDashboardPage() {
 
   const [tab, setTab] = useState("discover");
   const [loading, setLoading] = useState(true);
-  const [dashboard, setDashboard] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
   const [savedProjects, setSavedProjects] = useState([]);
-  const [sentInterests, setSentInterests] = useState([]);
+  const [interests, setInterests] = useState([]);
+  const [sectorFilter, setSectorFilter] = useState("all");
+  const [prefSectors, setPrefSectors] = useState(["ai", "fintech"]);
+  const [stats, setStats] = useState({ saved: 0, interestsSent: 0, accepted: 0, pending: 0 });
 
-  const fetchData = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const [dashData, savedData, interestsData] = await Promise.all([
-        api.get("/dashboard/investor"),
-        api.get("/saved-projects").catch(() => []),
-        api.get("/interests/sent").catch(() => []),
+      const dashRes = await api.get("/dashboard/investor");
+      const d = dashRes?.data ?? dashRes ?? {};
+
+      // Suggested projects (Discover tab) come from the dashboard API.
+      setSuggestions((d.suggested_projects ?? d.recommendations ?? []).map(mapApiProject));
+
+      // Saved projects + sent interests are secondary — keep the page usable if one fails.
+      const [savedRes, interestsRes] = await Promise.allSettled([
+        api.get("/saved-projects?per_page=50"),
+        api.get("/interests/sent?per_page=20"),
       ]);
-      setDashboard(dashData);
-      setSavedProjects(savedData.data ?? savedData ?? []);
-      setSentInterests(interestsData.data ?? interestsData ?? []);
+      const saved = savedRes.status === "fulfilled" ? (savedRes.value?.data ?? []) : [];
+      const sent =
+        interestsRes.status === "fulfilled"
+          ? (interestsRes.value?.data ?? [])
+          : (d.recent_interests ?? []);
+      setSavedProjects(saved.map(mapApiProject));
+      setInterests(sent);
+
+      setStats({
+        saved: d.saved_count ?? saved.length,
+        interestsSent: d.interest_stats?.total ?? sent.length,
+        accepted: d.interest_stats?.accepted ?? 0,
+        pending: d.interest_stats?.pending ?? 0,
+      });
     } catch (err) {
-      toast.error(err.body?.message ?? "Failed to load dashboard");
+      toast.error(err.body?.message ?? t("investor.title"));
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Async data fetch — setState happens after await, not synchronously.
+    load(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [load]);
 
-  const suggestions = (dashboard?.suggestions?.data ?? dashboard?.suggestions ?? []).map(mapProject);
-  const statsData = dashboard?.interest_stats ?? {};
+  const discoverList = suggestions.filter(
+    (p) => sectorFilter === "all" || p.sector === sectorFilter
+  );
 
-  const stats = [
-    { key: "sent", value: statsData.total ?? 0, change: null, icon: Heart },
-    { key: "saved", value: dashboard?.saved_count ?? 0, change: null, icon: BookmarkSimple },
+  const statsList = [
+    { key: "saved", value: stats.saved, icon: BookmarkSimple },
+    { key: "interestsSent", value: stats.interestsSent, icon: Heart },
+    { key: "accepted", value: stats.accepted, icon: CheckCircle },
+    { key: "pending", value: stats.pending, icon: Compass },
   ];
 
-  async function handleSaveToggle(project) {
+  async function toggleSaved(projectId) {
+    const isSaved = savedProjects.some((p) => p.id === String(projectId));
     try {
-      const isSaved = savedProjects.some((sp) => (sp.id ?? sp.project_id) === project.id);
       if (isSaved) {
-        await api.delete(`/projects/${project.id}/save`);
-        setSavedProjects((prev) => prev.filter((sp) => (sp.id ?? sp.project_id) !== project.id));
+        await api.delete(`/projects/${projectId}/save`);
+        setSavedProjects((prev) => prev.filter((p) => p.id !== String(projectId)));
         toast.success(t("investor.unsaved"));
       } else {
-        await api.post(`/projects/${project.id}/save`);
-        setSavedProjects((prev) => [...prev, { project_id: project.id, project: project }]);
+        await api.post(`/projects/${projectId}/save`);
+        const res = await api.get("/saved-projects?per_page=50");
+        setSavedProjects((res?.data ?? []).map(mapApiProject));
         toast.success(t("investor.saved"));
       }
-    } catch {
-      toast.error(t("investor.saveError"));
+    } catch (err) {
+      toast.error(err.body?.message ?? (isSaved ? t("investor.unsaved") : t("investor.saved")));
     }
   }
+
+  function togglePrefSector(sector) {
+    setPrefSectors((prev) =>
+      prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
+    );
+  }
+
+  const tabs = [
+    { key: "discover", label: t("investor.tabs.discover") },
+    { key: "saved", label: t("investor.tabs.saved") },
+    { key: "interests", label: t("investor.tabs.interests") },
+    { key: "preferences", label: t("investor.tabs.preferences") },
+  ];
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton lines={3} />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="rounded-xl border border-border bg-surface-1 p-5">
-              <Skeleton lines={4} />
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-surface-1 p-5 shadow-sm">
+              <Skeleton className="h-10 w-10 rounded-lg" />
+              <Skeleton className="mt-4 h-7 w-16" />
+              <Skeleton className="mt-2 h-4 w-24" />
             </div>
+          ))}
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-64 w-full rounded-xl" />
           ))}
         </div>
       </div>
     );
   }
-
-  const tabs = [
-    { key: "discover", label: t("investor.tabs.discover"), icon: Compass },
-    { key: "saved", label: t("investor.tabs.saved"), icon: BookmarkSimple },
-    { key: "interests", label: t("investor.tabs.interests"), icon: Heart },
-  ];
 
   return (
     <div className="space-y-6">
@@ -121,9 +145,9 @@ export default function InvestorDashboardPage() {
         <p className="mt-1 text-text-secondary">{t("investor.subtitle")}</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {stats.map(({ key, value, change, icon: IconComponent }, i) => (
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {statsList.map(({ key, value, icon: IconComponent }, i) => (
           <motion.div
             key={key}
             initial={{ opacity: 0, y: 12 }}
@@ -131,17 +155,9 @@ export default function InvestorDashboardPage() {
             transition={{ delay: i * 0.06 }}
             className="rounded-xl border border-border bg-surface-1 p-5 shadow-sm"
           >
-            <div className="flex items-center justify-between">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-100">
-                <IconComponent size={20} weight="regular" className="text-primary-600" />
-              </span>
-              {change && (
-                <span className="flex items-center gap-1 text-xs font-semibold text-success">
-                  <TrendUp size={14} weight="bold" aria-hidden />
-                  {change}
-                </span>
-              )}
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-100">
+              <IconComponent size={20} weight="regular" className="text-primary-600" />
+            </span>
             <p className="mt-4 font-heading text-2xl font-bold text-text-primary">
               {formatNumber(value)}
             </p>
@@ -152,123 +168,215 @@ export default function InvestorDashboardPage() {
 
       {/* Tabs */}
       <div role="tablist" aria-label={t("investor.tabsLabel")} className="flex gap-1 overflow-x-auto border-b border-border">
-        {tabs.map(({ key, label, icon: IconComponent }) => (
+        {tabs.map(({ key, label }) => (
           <button
             key={key}
             role="tab"
             aria-selected={tab === key}
             onClick={() => setTab(key)}
             className={cn(
-              "flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors",
+              "min-h-12 shrink-0 border-b-2 px-4 text-sm font-semibold transition-colors",
               tab === key
                 ? "border-primary-600 text-primary-600"
                 : "border-transparent text-text-secondary hover:text-text-primary"
             )}
           >
-            <IconComponent size={18} weight={tab === key ? "fill" : "regular"} />
             {label}
           </button>
         ))}
       </div>
 
-      {/* Discover */}
+      {/* ===== Discover ===== */}
       {tab === "discover" && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {suggestions.length === 0 ? (
-            <div className="col-span-full">
-              <EmptyState
-                icon={Compass}
-                title={t("investor.noSuggestions")}
-                description={t("investor.noSuggestionsDesc")}
-              />
-            </div>
-          ) : (
-            suggestions.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                locale={locale}
-                onSave={() => handleSaveToggle(project)}
-                isSaved={savedProjects.some((sp) => (sp.id ?? sp.project_id) === project.id)}
-              />
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Saved */}
-      {tab === "saved" && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {savedProjects.length === 0 ? (
-            <div className="col-span-full">
-              <EmptyState
-                icon={BookmarkSimple}
-                title={t("investor.noSaved")}
-                description={t("investor.noSavedDesc")}
-                action={
-                  <Button onClick={() => setTab("discover")}>
-                    <Compass size={18} />
-                    {t("investor.explore")}
-                  </Button>
-                }
-              />
-            </div>
-          ) : (
-            savedProjects.map((sp) => {
-              const p = sp.project ?? sp;
-              return (
-                <ProjectCard
-                  key={sp.id ?? sp.project_id}
-                  project={mapProject(p)}
-                  locale={locale}
-                  onSave={() => handleSaveToggle(p)}
-                  isSaved
-                />
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* Interests sent */}
-      {tab === "interests" && (
-        <div className="space-y-3">
-          {sentInterests.length === 0 ? (
+        <div className="space-y-5">
+          <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("investor.discoverFilters")}>
+            <FilterPill active={sectorFilter === "all"} onClick={() => setSectorFilter("all")}>
+              {t("investor.all")}
+            </FilterPill>
+            {sectorOptions.map((s) => (
+              <FilterPill key={s} active={sectorFilter === s} onClick={() => setSectorFilter(s)}>
+                {locale === "ar" ? sectorLabels[s]?.ar : sectorLabels[s]?.en}
+              </FilterPill>
+            ))}
+          </div>
+          {discoverList.length === 0 ? (
             <EmptyState
-              icon={Heart}
-              title={t("investor.noInterests")}
-              description={t("investor.noInterestsDesc")}
+              icon={Compass}
+              title={t("investor.savedEmpty")}
+              description={t("investor.savedEmptyDesc")}
             />
           ) : (
-            sentInterests.map((req) => {
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {discoverList.map((project) => (
+                <div key={project.id} className="space-y-3">
+                  <ProjectCard project={project} noBookmark />
+                  <Button
+                    fullWidth
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => toggleSaved(project.id)}
+                  >
+                    <BookmarkSimple size={16} weight="fill" className="text-primary-600" />
+                    {savedProjects.some((p) => p.id === String(project.id))
+                      ? t("investor.removeSaved")
+                      : t("investor.saved")}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== Saved ===== */}
+      {tab === "saved" && (
+        savedProjects.length === 0 ? (
+          <EmptyState
+            icon={BookmarkSimple}
+            title={t("investor.savedEmpty")}
+            description={t("investor.savedEmptyDesc")}
+          />
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {savedProjects.map((project) => (
+              <div key={project.id} className="space-y-3">
+                <ProjectCard project={project} noBookmark />
+                <Button fullWidth variant="secondary" size="sm" onClick={() => toggleSaved(project.id)}>
+                  <BookmarkSimple size={16} weight="fill" className="text-primary-600" />
+                  {t("investor.removeSaved")}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* ===== My interests ===== */}
+      {tab === "interests" && (
+        <div className="space-y-3">
+          {interests.length === 0 ? (
+            <EmptyState icon={Heart} title={t("investor.interestsEmpty")} />
+          ) : (
+            interests.map((row) => {
+              const project = row.project ? mapApiProject(row.project) : null;
               const statusStyle =
-                req.status === "pending"
-                  ? "bg-tint-warning text-warning-ink"
-                  : req.status === "accepted"
-                    ? "bg-tint-success text-success-ink"
-                    : "bg-accent-100 text-primary-600";
+                row.status === "accepted"
+                  ? "bg-tint-success text-success-ink"
+                  : row.status === "rejected"
+                    ? "bg-tint-danger text-danger-ink"
+                    : row.status === "cancelled"
+                      ? "bg-accent-100 text-primary-600"
+                      : "bg-tint-warning text-warning-ink";
               return (
                 <div
-                  key={req.id}
-                  className="flex items-center justify-between rounded-xl border border-border bg-surface-1 p-5 shadow-sm"
+                  key={row.id}
+                  className="flex flex-col gap-3 rounded-xl border border-border bg-surface-1 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
-                    <p className="font-heading font-semibold text-text-primary">
-                      {req.project?.title ?? `Project #${req.project_id}`}
+                  <div className="min-w-0">
+                    <p className="truncate font-heading font-semibold text-text-primary">
+                      {project ? (locale === "ar" ? project.title.ar : project.title.en) : "—"}
                     </p>
-                    <p className="text-sm text-text-secondary">
-                      {format.dateTime(new Date(req.created_at ?? req.date), { dateStyle: "medium" })}
+                    <p className="mt-0.5 text-sm text-text-secondary">
+                      {format.dateTime(new Date(row.created_at ?? row.date), { dateStyle: "medium" })}
                     </p>
                   </div>
-                  <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", statusStyle)}>
-                    {t(`investor.status.${req.status}`)}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", statusStyle)}>
+                      {t(`investor.interestStatus.${row.status}`)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={row.status !== "accepted"}
+                      onClick={() => toast.info(t("investor.agreementSoon"))}
+                    >
+                      <DownloadSimple size={16} />
+                      {t("investor.agreement")}
+                    </Button>
+                  </div>
                 </div>
               );
             })
           )}
         </div>
       )}
+
+      {/* ===== Preferences ===== */}
+      {tab === "preferences" && (
+        <div className="max-w-2xl space-y-6 rounded-xl border border-border bg-surface-1 p-6 shadow-sm">
+          <h2 className="flex items-center gap-2 font-heading text-lg font-bold text-text-primary">
+            <SlidersHorizontal size={20} className="text-primary-600" aria-hidden />
+            {t("investor.preferencesTitle")}
+          </h2>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-text-primary">
+              {t("investor.prefSectors")}
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {sectorOptions.map((s) => {
+                const selected = prefSectors.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => togglePrefSector(s)}
+                    className={cn(
+                      "min-h-10 rounded-full border px-3.5 text-sm font-medium transition-all",
+                      selected
+                        ? "border-primary-600 bg-primary-600 text-white shadow-sm"
+                        : "border-border bg-surface-0 text-text-secondary hover:border-primary-500 hover:text-text-primary"
+                    )}
+                  >
+                    {locale === "ar" ? sectorLabels[s]?.ar : sectorLabels[s]?.en}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div>
+            <label htmlFor="pref-budget" className="mb-1.5 block text-sm font-medium text-text-primary">
+              {t("investor.prefBudget")}
+            </label>
+            <select
+              id="pref-budget"
+              defaultValue="100k-500k"
+              className="w-full rounded-lg border border-border bg-surface-0 px-4 py-3 text-text-primary focus:border-primary-600 focus:outline-none"
+            >
+              <option value="<100k">&lt; $100K</option>
+              <option value="100k-500k">$100K – $500K</option>
+              <option value="500k-1m">$500K – $1M</option>
+              <option value=">1m">&gt; $1M</option>
+            </select>
+          </div>
+
+          <Button onClick={() => toast.success(t("investor.prefSaved"))}>
+            <TrendUp size={18} weight="bold" />
+            {t("investor.savePrefs")}
+          </Button>
+          <p className="text-xs text-text-secondary">{t("investor.prefsNote")}</p>
+        </div>
+      )}
     </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-300",
+        active
+          ? "border-primary-600 bg-primary-600 text-white shadow-md"
+          : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
+      )}
+    >
+      {children}
+    </button>
   );
 }

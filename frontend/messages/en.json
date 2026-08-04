@@ -424,6 +424,7 @@
       "rightsConfirm": "I confirm I own this project or have permission to publish it",
       "saveDraft": "Save as draft",
       "draftSaved": "Draft saved locally",
+      "publishError": "Failed to publish the project. Please review the form and try again.",
       "back": "Back",
       "next": "Next",
       "publish": "Publish project"
@@ -482,6 +483,7 @@
       "trashEmpty": "Trash is empty",
       "restore": "Restore",
       "deleteForever": "Delete forever",
+      "daysLeft": "{count} days left",
       "projectsEmpty": "No projects yet",
       "projectsEmptyDesc": "Upload your first project and let AI evaluate it for investors",
       "insights": "Your scores over time",
