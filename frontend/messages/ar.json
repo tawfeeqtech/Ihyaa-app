@@ -70,6 +70,8 @@
     "visualCta": "أنشئ حسابك مجاناً",
     "oauthDemoTitle": "تسجيل عبر {provider}",
     "oauthDemoDescription": "الربط مع موفري OAuth سيتوفر مع ربط الـ Backend (Laravel Socialite)",
+    "oauthRolePrompt": "تم إنشاء حسابك عبر {provider}. اختر دورك للمتابعة.",
+    "continueButton": "متابعة",
     "providers": {
       "google": "Google",
       "github": "GitHub",

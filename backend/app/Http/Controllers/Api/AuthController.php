@@ -217,12 +217,19 @@ class AuthController
         };
     }
 
-    public function redirectToProvider(string $provider): JsonResponse
+    public function redirectToProvider(string $provider, Request $request): JsonResponse
     {
         // CSRF state — يُخزَّن في Redis بصلاحية 10 دقائق ويُستهلك في callback (استهلاك لمرة واحدة)
         $state = Str::random(40);
 
-        Redis::setex('oauth_state:'.$state, 600, $provider);
+        // Store the frontend redirect URL alongside the provider name so the
+        // callback can redirect the browser back to the SPA with the token.
+        $payload = json_encode([
+            'provider' => $provider,
+            'redirect_to' => $request->input('redirect_to', config('app.frontend_url').'/ar/auth/callback'),
+        ]);
+
+        Redis::setex('oauth_state:'.$state, 600, $payload);
 
         $url = Socialite::driver($this->resolveProvider($provider))
             ->stateless()
@@ -233,26 +240,25 @@ class AuthController
         return $this->success(['redirect_url' => $url], __('auth.oauth_redirect'));
     }
 
-    public function handleProviderCallback(string $provider, Request $request): JsonResponse
+    public function handleProviderCallback(string $provider, Request $request): \Illuminate\Http\RedirectResponse|JsonResponse
     {
         // فحص state — يمنع تزوير إعادة التوجيه (CSRF). المفتاح يُستهلك من Redis مرة واحدة.
         $state = $request->input('state');
 
-        if ($state === null) {
-            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
-        }
+        // Resolve the frontend redirect URL from Redis (stored by redirectToProvider).
+        $storedRaw = $state ? Redis::get('oauth_state:'.$state) : null;
+        $stored = $storedRaw ? json_decode($storedRaw, true) : null;
+        $redirectTo = $stored['redirect_to'] ?? config('app.frontend_url').'/ar/auth/callback';
 
-        $storedProvider = Redis::get('oauth_state:'.$state);
-
-        if ($storedProvider === null) {
-            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        if ($state === null || $stored === null) {
+            return $this->redirectWithError($redirectTo, 'INVALID_STATE', __('auth.oauth_invalid_state'));
         }
 
         // استهلاك لمرة واحدة — لا يمكن إعادة استخدام نفس state
         Redis::del('oauth_state:'.$state);
 
-        if ($storedProvider !== $provider) {
-            return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
+        if (($stored['provider'] ?? '') !== $provider) {
+            return $this->redirectWithError($redirectTo, 'INVALID_STATE', __('auth.oauth_invalid_state'));
         }
 
         try {
@@ -260,14 +266,14 @@ class AuthController
                 ->stateless()
                 ->user();
         } catch (\Throwable $e) {
-            return $this->error('OAUTH_FAILED', __('auth.oauth_failed'), 401);
+            return $this->redirectWithError($redirectTo, 'OAUTH_FAILED', __('auth.oauth_failed'));
         }
 
         $email = $socialUser->getEmail();
 
         // بعض المزودين لا يشاركون البريد — لا يمكن إنشاء حساب دونه
         if (! $email) {
-            return $this->error('PROVIDER_EMAIL_REQUIRED', __('auth.provider_email_required'), 422);
+            return $this->redirectWithError($redirectTo, 'PROVIDER_EMAIL_REQUIRED', __('auth.provider_email_required'));
         }
 
         $user = User::where('provider', $provider)
@@ -301,17 +307,33 @@ class AuthController
         $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
 
         $roleRequired = $user->role === null; // أول دخول OAuth — يختار الدور (SRS-F01-07)
+        $roleSetupState = $roleRequired
+            ? hash_hmac('sha256', $user->id.'|'.$provider, (string) config('app.key'))
+            : null;
 
-        return $this->success([
+        // Redirect browser to the frontend SPA with the auth token in the fragment
+        // so it never hits the server (token stays out of access logs).
+        $params = http_build_query([
             'token' => $token->plainTextToken,
-            'token_expires_at' => now()->addHours(User::TOKEN_EXPIRY_HOURS)->toISOString(),
-            'user' => $user->toApiArray(),
-            'role_required' => $roleRequired,
-            // state موقع (HMAC) — يرسله العميل إلى POST /auth/{provider}/role لتثبيت الدور
-            'role_setup_state' => $roleRequired
-                ? hash_hmac('sha256', $user->id.'|'.$provider, (string) config('app.key'))
-                : null,
-        ], __('auth.logged_in'));
+            'role' => $user->role?->value,
+            'name' => $user->name,
+            'role_required' => $roleRequired ? '1' : '0',
+            'role_setup_state' => $roleSetupState ?? '',
+            'provider' => $provider,
+        ]);
+
+        $separator = str_contains($redirectTo, '?') ? '&' : '?';
+        return redirect()->away($redirectTo.$separator.$params);
+    }
+
+    /** Build a redirect to the frontend with error params. */
+    private function redirectWithError(string $redirectTo, string $code, string $message): \Illuminate\Http\RedirectResponse
+    {
+        $separator = str_contains($redirectTo, '?') ? '&' : '?';
+        return redirect()->away($redirectTo.$separator.http_build_query([
+            'error' => $code,
+            'error_message' => $message,
+        ]));
     }
 
     /**

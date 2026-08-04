@@ -70,6 +70,8 @@
     "visualCta": "Create your free account",
     "oauthDemoTitle": "Continue with {provider}",
     "oauthDemoDescription": "OAuth providers will be wired once the Laravel backend is connected",
+    "oauthRolePrompt": "Your account has been created via {provider}. Choose your role to continue.",
+    "continueButton": "Continue",
     "providers": {
       "google": "Google",
       "github": "GitHub",
