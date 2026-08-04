@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Lightbulb, Wallet, WarningCircle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { api, setAuthCookies } from "@/shared/lib/api";
 import { cn } from "@/shared/utils";
@@ -15,7 +14,6 @@ import { cn } from "@/shared/utils";
  */
 export default function SelectRolePage() {
   const t = useTranslations("auth");
-  const router = useRouter();
   const [role, setRole] = useState("idea_owner");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,15 +25,17 @@ export default function SelectRolePage() {
     const state = document.cookie.match(/(?:^|; )ihyaa_oauth_state=([^;]*)/)?.[1];
     const name = document.cookie.match(/(?:^|; )ihyaa_oauth_name=([^;]*)/)?.[1];
 
+    const locale = window.location.pathname.split("/")[1] || "ar";
+
     if (!token || !provider) {
-      router.replace("/login");
+      window.location.replace(`/${locale}/login`);
       return;
     }
 
     // Store the token as the real auth cookie so the API client can use it
     document.cookie = `ihyaa_token=${token};path=/;max-age=600;samesite=lax`;
     setOauthData({ token, provider, state: state ?? "", name: name ? decodeURIComponent(name) : "User" });
-  }, [router]);
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -58,8 +58,12 @@ export default function SelectRolePage() {
       // Set proper auth cookies
       setAuthCookies(oauthData.token, { role, name: oauthData.name });
 
-      const dashboardPath = role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
-      router.replace(dashboardPath);
+      const locale = window.location.pathname.split("/")[1] || "ar";
+      const dashboardPath =
+        role === "investor"
+          ? `/${locale}/dashboard/investor`
+          : `/${locale}/dashboard/owner`;
+      window.location.replace(dashboardPath);
     } catch (err) {
       setError(err.body?.message ?? t("errors.generic"));
     } finally {
@@ -83,7 +87,9 @@ export default function SelectRolePage() {
   return (
     <div className="mx-auto max-w-md py-16">
       <h1 className="font-heading text-2xl font-bold">{t("chooseRole")}</h1>
-      <p className="mt-2 text-text-secondary">{t("oauthRolePrompt")}</p>
+      <p className="mt-2 text-text-secondary">
+        {t("oauthRolePrompt", { provider: t(`providers.${oauthData.provider}`) })}
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t("chooseRole")}>

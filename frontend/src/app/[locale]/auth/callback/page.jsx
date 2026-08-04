@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "@/config/i18n/link";
 import { setAuthCookies } from "@/shared/lib/api";
-import { Skeleton } from "@/shared/components/Skeleton";
 
 /**
  * OAuth callback page — receives token from the Laravel backend after a
@@ -14,9 +12,11 @@ import { Skeleton } from "@/shared/components/Skeleton";
  *
  * On error:
  *   ?error=INVALID_STATE&error_message=...
+ *
+ * Uses window.location.replace (full-page navigation) instead of the
+ * Next.js router so cookies are reliably persisted across the redirect.
  */
 export default function AuthCallbackPage() {
-  const router = useRouter();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -40,6 +40,9 @@ export default function AuthCallbackPage() {
       return;
     }
 
+    // Build the locale-aware redirect path from the current URL.
+    const locale = window.location.pathname.split("/")[1] || "ar";
+
     if (roleRequired || !role) {
       // New OAuth user — needs to pick a role first.
       // Store the token temporarily and redirect to role selection.
@@ -47,36 +50,38 @@ export default function AuthCallbackPage() {
       document.cookie = `ihyaa_oauth_provider=${provider};path=/;max-age=600;samesite=lax`;
       document.cookie = `ihyaa_oauth_state=${roleSetupState};path=/;max-age=600;samesite=lax`;
       document.cookie = `ihyaa_oauth_name=${encodeURIComponent(name)};path=/;max-age=600;samesite=lax`;
-      router.replace("/auth/select-role");
+      window.location.replace(`/${locale}/auth/select-role`);
       return;
     }
 
     // Existing user with a role — store auth cookies and redirect to dashboard.
     setAuthCookies(token, { role, name });
-    const dashboardPath = role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
-    router.replace(dashboardPath);
-  }, [router]);
+    const dashboardPath =
+      role === "investor"
+        ? `/${locale}/dashboard/investor`
+        : `/${locale}/dashboard/owner`;
+    window.location.replace(dashboardPath);
+  }, []);
 
   if (error) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <h1 className="font-heading text-2xl font-bold text-text-primary">OAuth Error</h1>
         <p className="text-text-secondary">{error}</p>
-        <button
-          type="button"
+        <a
+          href="/ar/login"
           className="rounded-lg bg-primary-600 px-6 py-3 font-medium text-white hover:bg-primary-500"
-          onClick={() => router.push("/login")}
         >
           Back to Login
-        </button>
+        </a>
       </div>
     );
   }
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-      <Skeleton className="h-8 w-48" />
-      <Skeleton className="h-4 w-64" />
+      <div className="h-8 w-48 animate-pulse rounded-lg bg-surface-1" />
+      <div className="h-4 w-64 animate-pulse rounded-lg bg-surface-1" />
       <p className="text-text-secondary">Completing authentication...</p>
     </div>
   );
