@@ -15,10 +15,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Scout\Searchable;
 
 class Project extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, Searchable, SoftDeletes;
 
     public const TRASH_RECOVERY_DAYS = 30;          // سلة مهملات 30 يوماً (SRS-F02-06)
 
@@ -88,6 +89,54 @@ class Project extends Model
     public function evaluations(): HasMany
     {
         return $this->hasMany(AiEvaluation::class)->orderByDesc('version');
+    }
+
+    // ——————————————————————— فهرسة البحث (Scout/Meilisearch — plan §5.1 · data-model §8.1) ———————————————————————
+
+    /** اسم فهرس Meilisearch — plan §5.1 (T007) */
+    public function searchableAs(): string
+    {
+        return 'projects_index';
+    }
+
+    /** سجل تقييمات AI على الجدول الجديد `evaluations` (Sprint 2 — App\Models\Evaluation) */
+    public function evaluationHistory(): HasMany
+    {
+        return $this->hasMany(Evaluation::class);
+    }
+
+    /** آخر تقييم مكتمل — مصدر `overall_score` في الفهرس (plan §5.1) */
+    public function latestCompletedEvaluation(): ?Evaluation
+    {
+        // حارس: نموذج Evaluation/جدوله يُنشآن في Sprint 2 (مهمة موازية) — قبل وجوده تُعتبر الدرجة null بلا كسر
+        if (! class_exists(Evaluation::class)) {
+            return null;
+        }
+
+        return $this->evaluationHistory()
+            ->where('status', EvaluationStatus::COMPLETED)
+            ->latest('created_at')
+            ->first();
+    }
+
+    /** وثيقة الفهرس — id/title/description/category/tags/status/overall_score/has_score/views_count/created_at/user_id (plan §5.1) */
+    public function toSearchableArray(): array
+    {
+        $latest = $this->latestCompletedEvaluation();
+
+        return [
+            'id'            => (string) $this->id,
+            'title'         => $this->title,
+            'description'   => $this->description,
+            'category'      => $this->category?->slug,
+            'tags'          => $this->tags ?? [],
+            'status'        => $this->status?->value,
+            'overall_score' => $latest?->overall_score,
+            'has_score'     => $latest !== null,
+            'views_count'   => $this->view_count,
+            'created_at'    => $this->created_at?->timestamp,
+            'user_id'       => (string) $this->user_id,
+        ];
     }
 
     public function interests(): HasMany

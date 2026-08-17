@@ -9,7 +9,8 @@ use Illuminate\Http\Request;
 
 /**
  * البحث — SRS-API-20/21 · RL-PUB-03/04 (30/دقيقة · IP).
- * MVP: MySQL LIKE — يُستبدل بـ Meilisearch عبر Laravel Scout (متزامن تلقائياً) عند توفر الحزمة.
+ * الفهرس عبر Laravel Scout + Meilisearch (متزامن تلقائياً عبر ProjectObserver — plan §5.1/§5.3).
+ * الفهرس يضم المنشور وغير المحذوف فقط (FR-247) — لا حاجة لمرشح published على DB.
  */
 class SearchController
 {
@@ -28,13 +29,19 @@ class SearchController
 
         $perPage = min((int) $request->input('per_page', Project::DEFAULT_PAGE_SIZE), 50);
 
-        $projects = Project::query()
-            ->with(['category', 'files' => fn ($q) => $q->where('type', 'image')])
-            ->published()
-            ->ofCategory($request->input('category'))
-            ->ofState($request->input('state'))
-            ->search($request->input('q'))
-            ->sortBy($request->input('sort'))
+        // عمود الفرز في الفهرس (sortableAttributes — data-model §8.2):
+        // ai_score → overall_score · view_count → views_count · الافتراضي created_at (الأحدث أولاً)
+        $sortColumn = match ($request->input('sort')) {
+            'ai_score' => 'overall_score',
+            'view_count' => 'views_count',
+            default => 'created_at',
+        };
+
+        $projects = Project::search($request->input('q'))
+            ->query(fn ($query) => $query->with(['category', 'files' => fn ($q) => $q->where('type', 'image')]))
+            ->when($request->input('category'), fn ($builder, $category) => $builder->where('category', $category))
+            ->when($request->input('state'), fn ($builder, $state) => $builder->where('status', $state))
+            ->orderBy($sortColumn, 'desc')
             ->paginate($perPage);
 
         return $this->paginated(
@@ -43,7 +50,7 @@ class SearchController
         );
     }
 
-    /** اقتراحات البحث — حتى 5 اقتراحات (SRS-F06-02 · Debounce 300ms) */
+    /** اقتراحات البحث — حتى 5 اقتراحات من الفهرس (SRS-F06-02 · Debounce 300ms · plan §5.4) */
     public function suggestions(Request $request): JsonResponse
     {
         $request->validate([
@@ -52,12 +59,10 @@ class SearchController
 
         $term = $request->input('q');
 
-        // بحث خفيف في العناوين المنشورة فقط
-        $suggestions = Project::query()
-            ->published()
-            ->where('title', 'like', "%{$term}%")
-            ->orderByDesc('view_count')
-            ->limit(5)
+        // اقتراحات من Meilisearch (الفهرس يضم المنشور وغير المحذوف فقط — FR-247)
+        $suggestions = Project::search($term)
+            ->take(5)
+            ->get()
             ->pluck('title');
 
         return $this->success(['suggestions' => $suggestions]);

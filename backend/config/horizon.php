@@ -219,11 +219,50 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | supervisor-ai — قنوات محرك التقييم (plan.md §2.2)
+            |--------------------------------------------------------------------------
+            | maxProcesses=6: كل تقييم يشغّل 5 طلبات متوازية → 6 × 5 = 30 طلباً لحظياً كحد أقصى.
+            | tries=1: منطق إعادة المحاولة (0/3/9s) يعيش داخل FallbackManager وليس على مستوى الـ Job
+            | (SRS-AI-F03) — يمنع إعادة تشغيل الـ Orchestrator كاملاً عند فشل بُعد واحد.
+            | timeout=210: > مهلة EvaluateProjectJob (200s) والسقف 180s + هامش.
+            */
+            'supervisor-ai' => [
+                'connection' => 'redis',
+                'queue' => ['ai-evaluation', 'search-sync', 'notifications', 'default'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'minProcesses' => 1,
+                'maxProcesses' => 6,
+                'maxTime' => 0,
+                'maxJobs' => 0,
+                'memory' => 128,
+                'tries' => 1,
+                'timeout' => 210,
+                'nice' => 0,
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
+            ],
+
+            'supervisor-ai' => [
+                'connection' => 'redis',
+                'queue' => ['ai-evaluation', 'search-sync', 'notifications', 'default'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'minProcesses' => 1,
+                'maxProcesses' => 3,
+                'maxTime' => 0,
+                'maxJobs' => 0,
+                'memory' => 128,
+                'tries' => 1,
+                'timeout' => 210,
+                'nice' => 0,
             ],
         ],
     ],

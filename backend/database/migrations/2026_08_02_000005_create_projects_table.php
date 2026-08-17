@@ -59,11 +59,14 @@ return new class extends Migration
 
         });
 
-        // ——— قيود CHECK (MySQL 8.0.16+) ———
+        // ——— قيود CHECK (MySQL 8.0.16+ فقط) ———
         // ملاحظة: Laravel 13 أزال $table->check() من Blueprint → تُنفَّذ عبر SQL خام.
-        DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_visibility_check CHECK (visibility_level BETWEEN 1 AND 3)');
-        DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_budget_min_check CHECK (budget_min IS NULL OR budget_min >= 0)');
-        DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_budget_max_check CHECK (budget_max IS NULL OR budget_min IS NULL OR budget_max >= budget_min)');
+        // SQLite (المستخدمة في الاختبارات) لا تدعم ALTER TABLE ADD CONSTRAINT CHECK → تُتخطَّى.
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_visibility_check CHECK (visibility_level BETWEEN 1 AND 3)');
+            DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_budget_min_check CHECK (budget_min IS NULL OR budget_min >= 0)');
+            DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_budget_max_check CHECK (budget_max IS NULL OR budget_min IS NULL OR budget_max >= budget_min)');
+        }
     }
 
     public function down(): void

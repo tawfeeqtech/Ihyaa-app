@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Project;
+use App\Observers\ProjectObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -23,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+
+        // مزامنة فهرس البحث تلقائياً عند إنشاء/تعديل/حذف/استرجاع المشاريع (plan §5.3 · T127)
+        Project::observe(ProjectObserver::class);
     }
 
     /**
@@ -54,8 +59,9 @@ class AppServiceProvider extends ServiceProvider
 
         // ---------------- L5: العمليات المكلفة (AI + رفع) ----------------
         RateLimiter::for('ai.analyze', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')?->id));    // RL-AI-01 user+project (implicit binding → id)
-        RateLimiter::for('ai.evaluate', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')?->id));    // SRS-API-44..46
-        RateLimiter::for('ai.report', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-AI-02 + SRS-API-48
+        RateLimiter::for('ai.evaluate', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // SRS-API-44..46 · 10/دقيقة/مستخدم (evaluation-api.md §1)
+        RateLimiter::for('ai.report', fn (Request $r) => Limit::perHour(20)->by($r->user()?->id ?: $r->ip()));                    // RL-AI-02 + SRS-API-48 · 20/ساعة/مستخدم (sprint2)
+        RateLimiter::for('ai.search', fn (Request $r) => Limit::perMinute(60)->by($r->ip()));                                     // search-api.md · 60/دقيقة/عنوان IP
         RateLimiter::for('upload.file', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-IO-03/07
 
         // ---------------- L6: المشرف ----------------

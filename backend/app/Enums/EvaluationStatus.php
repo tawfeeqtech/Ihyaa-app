@@ -8,6 +8,7 @@ namespace App\Enums;
  */
 enum EvaluationStatus: string
 {
+    case PENDING = 'pending';
     case PROCESSING = 'processing';
     case COMPLETED = 'completed';
     case FAILED = 'failed';
@@ -16,6 +17,7 @@ enum EvaluationStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::PENDING => 'في الانتظار',
             self::PROCESSING => 'قيد المعالجة',
             self::COMPLETED => 'مكتمل',
             self::FAILED => 'فشل',

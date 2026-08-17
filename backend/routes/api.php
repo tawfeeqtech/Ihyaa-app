@@ -75,10 +75,10 @@ Route::get('/projects/{project}', [ProjectController::class, 'show'])
     ->middleware('throttle:public.detail');                          // RL-PUB-02 · 60/دقيقة (مخزّن مؤقتاً)
 
 Route::get('/search', [SearchController::class, 'search'])
-    ->middleware('throttle:public.browse');                          // RL-PUB-03 · 30/دقيقة
+    ->middleware('throttle:ai.search');                              // search-api.md · 60/دقيقة/عنوان IP
 
 Route::get('/search/suggestions', [SearchController::class, 'suggestions'])
-    ->middleware('throttle:public.browse');                          // RL-PUB-04 · 30/دقيقة
+    ->middleware('throttle:ai.search');                              // search-api.md · 60/دقيقة/عنوان IP
 
 Route::get('/tags/suggestions', [TagController::class, 'suggestions'])
     ->middleware('throttle:public.browse');                          // SRS-API-49 · L2 · 30/دقيقة
@@ -236,8 +236,8 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     | SRS-API-19, 23..27, 28..31
     |------------------------------------------------------------------------
     */
-    Route::get('/projects/{project}/evaluations', [ProjectController::class, 'evaluations'])
-        ->middleware('throttle:shared.read');                        // RL-IO-08 · 30/دقيقة
+    Route::get('/projects/{project}/evaluations', [EvaluationController::class, 'history'])
+        ->middleware('throttle:shared.read');                        // SRS-API-19 · آخر 5 مكتملة (الإفصاح حسب الدور)
 
     Route::get('/interests/received', [InterestController::class, 'received'])
         ->middleware('throttle:shared.read');                        // RL-SH-01 · L3 · 30/دقيقة (IO)
