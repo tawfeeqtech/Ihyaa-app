@@ -205,15 +205,6 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
 
         Route::get('/ai/analysis/{artifact}', [AIAgentController::class, 'show'])
             ->middleware('throttle:ai.report');                      // RL-AI-02 · 10/دقيقة
-
-        /*
-        | L5 — تصدير تقرير التقييم PDF (Owner دائماً / Investor بعد الاتفاق)
-        | SRS-API-48
-        |----------------------------------------------------------------------
-        */
-        Route::get('/projects/{project}/evaluations/{evaluation}/report',
-            [ReportController::class, 'export'])
-            ->middleware('throttle:ai.report');
     });
 
     /*
@@ -243,6 +234,21 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     */
     Route::get('/projects/{project}/evaluations', [EvaluationController::class, 'history'])
         ->middleware('throttle:shared.read');                        // SRS-API-19 · آخر 5 مكتملة (الإفصاح حسب الدور)
+
+    /*
+    | L3 — تقرير AI (Shared — الإفصاح حسب مصفوفة US-029 على الخادم)
+    | contracts/report-api.md §1/§2 · SRS-API-19/48 · EnforceReportDisclosure
+    |------------------------------------------------------------------------
+    | GET .../evaluations/{evaluation}        → 200 بيانات التقرير (المحتوى حسب المستوى)
+    | GET .../evaluations/{evaluation}/report → 200 PDF (L3/EX/AD فقط) · 403 PDF_EXPORT_DENIED
+    */
+    Route::get('/projects/{project}/evaluations/{evaluation}',
+        [ReportController::class, 'show'])
+        ->middleware(['report.disclosure', 'throttle:shared.read']); // SRS-API-19 · مصفوفة الإفصاح
+
+    Route::get('/projects/{project}/evaluations/{evaluation}/report',
+        [ReportController::class, 'export'])
+        ->middleware(['report.disclosure', 'throttle:ai.report']);   // SRS-API-48 · RL-AI-02 · 10/دقيقة
 
     Route::get('/interests/received', [InterestController::class, 'received'])
         ->middleware('throttle:shared.read');                        // RL-SH-01 · L3 · 30/دقيقة (IO)

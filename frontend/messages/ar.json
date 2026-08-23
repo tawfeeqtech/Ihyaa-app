@@ -23,7 +23,8 @@
     "lightMode": "الوضع الفاتح",
     "darkMode": "الوضع الداكن",
     "openMenu": "فتح القائمة",
-    "closeMenu": "إغلاق القائمة"
+    "closeMenu": "إغلاق القائمة",
+    "search": "البحث"
   },
   "footer": {
     "aboutDescription": "منصة تربط أصحاب الأفكار بالمستثمرين عبر تقييم ذكي يعتمد على خمسة أبعاد وتحليل فجوات عملي.",
@@ -361,10 +362,18 @@
       "dimensionsTitle": "الأبعاد",
       "swot": "تحليل SWOT",
       "swotItems": {
-        "strengths": { "title": "نقاط القوة" },
-        "weaknesses": { "title": "نقاط الضعف" },
-        "opportunities": { "title": "الفرص" },
-        "threats": { "title": "التهديدات" }
+        "strengths": {
+          "title": "نقاط القوة"
+        },
+        "weaknesses": {
+          "title": "نقاط الضعف"
+        },
+        "opportunities": {
+          "title": "الفرص"
+        },
+        "threats": {
+          "title": "التهديدات"
+        }
       },
       "gapsTitle": "تحليل الفجوات",
       "gaps": {
@@ -389,7 +398,29 @@
         "high": "أولوية عالية",
         "medium": "أولوية متوسطة",
         "low": "أولوية منخفضة"
-      }
+      },
+      "partialIndicator": "تقرير جزئي — {count} أبعاد غير مكتملة: {list}",
+      "noGaps": "لا فجوات في هذه الفئة",
+      "recommendationsTitle": "التوصيات",
+      "recommendationHorizons": {
+        "immediate": "فورية",
+        "short_term": "قصيرة المدى",
+        "long_term": "طويلة المدى"
+      },
+      "noRecommendations": "لا توصيات في هذا الأفق",
+      "skills": "المهارات المطلوبة",
+      "skillsExisting": "موجودة في الفريق",
+      "skillsMissing": "ناقصة — مطلوب سدّها",
+      "skillsCopy": "نسخ",
+      "skillsCopied": "تم النسخ",
+      "skillsShare": "مشاركة",
+      "skillsShareTitle": "المهارات المطلوبة للمشروع",
+      "skillsGapHint": "تسّد فجوة: {gap}",
+      "exportPdf": "تصدير PDF",
+      "exporting": "جارٍ التصدير…",
+      "exportLogin": "سجّل الدخول لتصدير التقرير",
+      "exportDenied": "التصدير متاح لصاحب المشروع أو بعد الاتفاق فقط",
+      "exportError": "تعذّر تصدير التقرير — حاول مجدداً"
     },
     "agreement": {
       "title": "اتفاقية التعاون",
@@ -638,5 +669,62 @@
     "loadError": "تعذّر تحميل الملف الشخصي",
     "saveError": "تعذّر حفظ الملف الشخصي",
     "preview": "معاينة"
+  },
+  "search": {
+    "title": "البحث في المشاريع",
+    "subtitle": "ابحث بين المشاريع المُقيّمة بالذكاء الاصطناعي وصفِّها حسب ما يناسبك",
+    "searchPlaceholder": "ابحث عن مشروع أو تقنية أو مجال…",
+    "searchLabel": "البحث في المشاريع",
+    "clearSearch": "مسح البحث",
+    "resultsCount": "{count} مشروع",
+    "loading": "جارٍ البحث…",
+    "empty": {
+      "title": "لا توجد نتائج مطابقة",
+      "description": "جرّب مصطلحات أوسع أو ألغِ بعض الفلاتر",
+      "suggestion1": "جرّب مصطلحات أوسع",
+      "suggestion2": "ألغِ بعض الفلاتر",
+      "browseAll": "تصفّح جميع المشاريع"
+    },
+    "unavailable": {
+      "title": "خدمة البحث غير متاحة",
+      "description": "تعذّر الوصول إلى محرك البحث حالياً. حاول مرة أخرى بعد قليل.",
+      "retry": "إعادة المحاولة"
+    },
+    "filters": {
+      "title": "الفلاتر",
+      "sector": "المجال",
+      "allSectors": "كل المجالات",
+      "score": "نطاق التقييم",
+      "minScore": "الحد الأدنى",
+      "maxScore": "الحد الأقصى",
+      "status": "الحالة",
+      "allStatuses": "كل الحالات",
+      "status_completed": "مكتمل",
+      "status_needs_development": "يحتاج تطوير",
+      "status_needs_funding": "يحتاج تمويل",
+      "tags": "التقنيات",
+      "allTags": "كل التقنيات",
+      "createdFrom": "من تاريخ",
+      "createdTo": "إلى تاريخ",
+      "clear": "مسح الفلاتر"
+    },
+    "sort": {
+      "label": "الفرز",
+      "score": "التقييم",
+      "created_at": "الأحدث",
+      "views_count": "الأكثر مشاهدة",
+      "asc": "تصاعدي",
+      "desc": "تنازلي"
+    },
+    "suggestions": {
+      "label": "اقتراحات البحث",
+      "empty": "لا توجد اقتراحات",
+      "project": "مشروع",
+      "tag": "تقنية"
+    },
+    "pagination": "ترقيم الصفحات",
+    "prev": "السابق",
+    "next": "التالي",
+    "perPage": "لكل صفحة"
   }
 }

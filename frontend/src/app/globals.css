@@ -187,3 +187,83 @@
     background: var(--color-primary-500);
   }
 }
+
+/* ---- Utility: hide on print (T094 · US-025) ---- */
+@utility no-print {
+  @media print {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   Print stylesheet (T094 · US-025) — clean, ink-friendly report
+   printing: white background, dark text, chrome hidden, cards
+   un-collapsed, SVG radar with solid fills.
+   ============================================================ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #1a2b3a !important;
+  }
+
+  /* Hide global + per-element chrome (nav, sidebar, tabs, buttons). */
+  header,
+  nav,
+  footer,
+  aside,
+  [role="tablist"],
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Un-collapse the two-column detail layout so the report flows full-width. */
+  .lg\:grid-cols-\[1fr_320px\] {
+    display: block !important;
+  }
+
+  /* Cards keep structure but lose shadows / heavy chrome. */
+  .rounded-xl,
+  .rounded-2xl {
+    border: 1px solid #e0e2ec !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  /* Guarantee readable ink regardless of theme. */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  li,
+  span {
+    color: #1a2b3a !important;
+  }
+
+  /* Animated score bars: force to full opacity, static width via inline style
+     is left as-is so completed values print; ensure no transparent fill. */
+  .motion-div,
+  [class*="h-full"] {
+    opacity: 1 !important;
+  }
+
+  /* SVG (radar): solid text so labels are legible. */
+  svg text {
+    fill: #1a2b3a !important;
+  }
+
+  /* Tint backgrounds (weak/medium/good chips) print as light greys. */
+  .bg-tint-danger,
+  .bg-tint-warning,
+  .bg-tint-success,
+  .bg-accent-100 {
+    background-color: #f1f3f6 !important;
+  }
+}

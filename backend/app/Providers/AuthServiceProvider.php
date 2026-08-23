@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Evaluation;
 use App\Models\Project;
+use App\Policies\EvaluationPolicy;
 use App\Policies\ProjectPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
@@ -21,6 +23,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Project::class => ProjectPolicy::class,
+        // US-029: سياسة عرض تقرير AI الكامل (L3/EX/AD) — يمر بها ReportController والتصدير.
+        Evaluation::class => EvaluationPolicy::class,
     ];
 
     public function boot(): void

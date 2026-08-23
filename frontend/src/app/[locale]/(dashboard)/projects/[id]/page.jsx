@@ -28,6 +28,8 @@ function mapApiToLegacy(api) {
     // The backend derives it from the requesting user; fall back to the most
     // conservative value so nothing is leaked when the field is missing.
     report_access: api.report_access ?? "none",
+    // Latest evaluation id — needed to fetch the full report JSON (EPIC-05).
+    evaluationId: evaluation?.id ?? null,
     dimensions: {
       technical: scores.technical_quality?.score ?? null,
       innovation: scores.innovation?.score ?? null,

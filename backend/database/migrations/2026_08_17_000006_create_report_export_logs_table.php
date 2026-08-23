@@ -17,7 +17,9 @@ return new class extends Migration
             $table->unsignedBigInteger('evaluation_id');
             $table->unsignedBigInteger('user_id');             // من طلب التصدير
 
-            $table->enum('access_level', ['owner', 'post_agreement', 'admin']);
+            // access_level: مستويات مصفوفة الإفصاح (L1/L2/L3/EX/AD — US-029).
+            // string (لا enum) ليستوعب كل المستويات بما فيها المرفوضة (denied).
+            $table->string('access_level', 16);
             $table->enum('language', ['ar', 'en']);
             $table->enum('status', ['success', 'failed', 'denied']);
 

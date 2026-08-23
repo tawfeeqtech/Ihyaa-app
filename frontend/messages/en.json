@@ -23,7 +23,8 @@
     "lightMode": "Light mode",
     "darkMode": "Dark mode",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "search": "Search"
   },
   "footer": {
     "aboutDescription": "A marketplace connecting idea owners with investors through AI evaluation across five dimensions and practical gap analysis.",
@@ -361,10 +362,18 @@
       "dimensionsTitle": "Dimensions",
       "swot": "SWOT analysis",
       "swotItems": {
-        "strengths": { "title": "Strengths" },
-        "weaknesses": { "title": "Weaknesses" },
-        "opportunities": { "title": "Opportunities" },
-        "threats": { "title": "Threats" }
+        "strengths": {
+          "title": "Strengths"
+        },
+        "weaknesses": {
+          "title": "Weaknesses"
+        },
+        "opportunities": {
+          "title": "Opportunities"
+        },
+        "threats": {
+          "title": "Threats"
+        }
       },
       "gapsTitle": "Gap Analysis",
       "gaps": {
@@ -389,7 +398,29 @@
         "high": "High priority",
         "medium": "Medium priority",
         "low": "Low priority"
-      }
+      },
+      "partialIndicator": "Partial report — {count} dimensions not completed: {list}",
+      "noGaps": "No gaps in this category",
+      "recommendationsTitle": "Recommendations",
+      "recommendationHorizons": {
+        "immediate": "Immediate",
+        "short_term": "Short-term",
+        "long_term": "Long-term"
+      },
+      "noRecommendations": "No recommendations in this horizon",
+      "skills": "Required skills",
+      "skillsExisting": "Covered by the team",
+      "skillsMissing": "Missing — need to be filled",
+      "skillsCopy": "Copy",
+      "skillsCopied": "Copied",
+      "skillsShare": "Share",
+      "skillsShareTitle": "Project required skills",
+      "skillsGapHint": "Fills the gap: {gap}",
+      "exportPdf": "Export PDF",
+      "exporting": "Exporting…",
+      "exportLogin": "Sign in to export the report",
+      "exportDenied": "Export is available to the owner or after an agreement only",
+      "exportError": "Failed to export the report — try again"
     },
     "agreement": {
       "title": "Collaboration agreement",
@@ -638,5 +669,62 @@
     "loadError": "Failed to load your profile",
     "saveError": "Failed to save your profile",
     "preview": "Preview"
+  },
+  "search": {
+    "title": "Search Projects",
+    "subtitle": "Search AI-evaluated projects and filter to your needs",
+    "searchPlaceholder": "Search projects, technologies, or sectors…",
+    "searchLabel": "Search projects",
+    "clearSearch": "Clear search",
+    "resultsCount": "{count} projects",
+    "loading": "Searching…",
+    "empty": {
+      "title": "No matching results",
+      "description": "Try broader terms or remove some filters",
+      "suggestion1": "Try broader terms",
+      "suggestion2": "Remove some filters",
+      "browseAll": "Browse all projects"
+    },
+    "unavailable": {
+      "title": "Search service unavailable",
+      "description": "We couldn’t reach the search engine. Please try again shortly.",
+      "retry": "Retry"
+    },
+    "filters": {
+      "title": "Filters",
+      "sector": "Sector",
+      "allSectors": "All sectors",
+      "score": "Score range",
+      "minScore": "Min",
+      "maxScore": "Max",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "status_completed": "Completed",
+      "status_needs_development": "Needs development",
+      "status_needs_funding": "Needs funding",
+      "tags": "Technologies",
+      "allTags": "All technologies",
+      "createdFrom": "From",
+      "createdTo": "To",
+      "clear": "Clear filters"
+    },
+    "sort": {
+      "label": "Sort by",
+      "score": "AI score",
+      "created_at": "Newest",
+      "views_count": "Most viewed",
+      "asc": "Ascending",
+      "desc": "Descending"
+    },
+    "suggestions": {
+      "label": "Search suggestions",
+      "empty": "No suggestions",
+      "project": "Project",
+      "tag": "Tag"
+    },
+    "pagination": "Pagination",
+    "prev": "Previous",
+    "next": "Next",
+    "perPage": "per page"
   }
 }

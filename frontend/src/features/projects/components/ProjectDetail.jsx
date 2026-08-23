@@ -18,16 +18,22 @@ import {
   Lock,
   Users,
   VideoCamera,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { AIScoreBadge, getScoreTier } from "./AIScoreBadge";
 import { RadarChart } from "./RadarChart";
+import { GapAnalysisPanel } from "./GapAnalysisPanel";
+import { RecommendationsList } from "./RecommendationsList";
+import { RequiredSkillsList } from "./RequiredSkillsList";
+import { ExportPdfButton } from "./ExportPdfButton";
 import { ImageGallery } from "./ImageGallery";
 import { PdfViewer } from "./PdfViewer";
 import { VideoEmbed } from "./VideoEmbed";
 import { ScoreRing } from "./ScoreRing";
+import { fetchReportData, missingRadarDimensions, DIMENSION_KEY_MAP } from "../lib/report";
 import { SkeletonText } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
@@ -75,6 +81,72 @@ export function ProjectDetail({ project }) {
   const [saved, setSaved] = useState(false);
   const [aiLoading, setAiLoading] = useState(true);
 
+  // Translated axis labels for the radar (same order as dimensionKeys).
+  const radarLabels = dimensionKeys.map((dim) => t(`report.dimensions.${dim}`));
+
+  // Full report JSON from GET /projects/{project}/evaluations/{evaluation}
+  // (EPIC-05). Fetched once on mount when the viewer can see at least the
+  // dimension scores; the radar/gaps/skills sections read from it, with the
+  // legacy `project.*` shapes as a fallback while it loads or on failure.
+  const shouldFetchReport = canViewDimensions && !!project.evaluationId;
+  const [reportData, setReportData] = useState(null);
+  const [reportReady, setReportReady] = useState(false);
+
+  useEffect(() => {
+    if (!shouldFetchReport) return;
+
+    let cancelled = false;
+    fetchReportData(project.id, project.evaluationId).then((data) => {
+      if (cancelled) return;
+      setReportData(data);
+      setReportReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldFetchReport, project.id, project.evaluationId]);
+
+  const reportLoading = shouldFetchReport && !reportReady;
+
+  // Radar source of truth: `radar_chart.axes` from the report endpoint when
+  // available (US-025-S2 — single stored source), else the legacy dimensions.
+  const radar = useMemo(() => {
+    const axes = reportData?.radar_chart?.axes;
+    if (Array.isArray(axes) && axes.length > 0) {
+      const dimensions = {};
+      const labels = [];
+      axes.forEach((axis) => {
+        const short = DIMENSION_KEY_MAP[axis.dimension] ?? axis.dimension;
+        dimensions[short] = axis.value;
+        labels.push(t(`report.dimensions.${short}`));
+      });
+      return {
+        dimensions,
+        labels,
+        missingDimensions: missingRadarDimensions(reportData?.evaluation, axes).map(
+          (m) => ({ ...m, label: t(`report.dimensions.${m.label}`) })
+        ),
+      };
+    }
+    return { dimensions: project.dimensions, labels: radarLabels, missingDimensions: [] };
+  }, [reportData, project.dimensions, radarLabels, t]);
+
+  // Dimension scores (FULL keys → score) for the gap-analysis linkage (T099).
+  const dimensionScores = useMemo(() => {
+    const dims = reportData?.evaluation?.dimensions ?? {};
+    const out = {};
+    Object.entries(dims).forEach(([key, entry]) => {
+      if (typeof entry === "number") out[key] = entry;
+      else if (entry && typeof entry.score === "number") out[key] = entry.score;
+    });
+    return out;
+  }, [reportData]);
+
+  // SWOT source: report endpoint returns flat string arrays; the legacy
+  // project.swot uses { ar, en } objects — both are handled at render time.
+  const swotSource = reportData?.swot ?? project.swot;
+
   const title = locale === "ar" ? project.title.ar : project.title.en;
   const description = locale === "ar" ? project.description.ar : project.description.en;
   const sectorText =
@@ -94,9 +166,6 @@ export function ProjectDetail({ project }) {
   const pdfFiles = Array.isArray(project.files)
     ? project.files.filter((f) => f.type === "pdf" || f.mime_type === "application/pdf")
     : [];
-
-  // Translated axis labels for the radar (same order as dimensionKeys).
-  const radarLabels = dimensionKeys.map((dim) => t(`report.dimensions.${dim}`));
 
   /* Simulate the async AI report fetch (backend: Laravel Queue + WebSocket). */
   useEffect(() => {
@@ -148,7 +217,7 @@ export function ProjectDetail({ project }) {
   return (
     <div className="space-y-6">
       {/* Cover header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600 px-6 pb-24 pt-16 sm:px-10 sm:pb-28 sm:pt-20">
+      <div className="no-print relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600 px-6 pb-24 pt-16 sm:px-10 sm:pb-28 sm:pt-20">
         <div className="pointer-events-none absolute inset-0 pattern-islamic" aria-hidden />
         <div className="relative z-10 max-w-2xl">
           <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +234,7 @@ export function ProjectDetail({ project }) {
       </div>
 
       {/* Quick stats bar */}
-      <div className="-mt-16 sm:-mt-20">
+      <div className="no-print -mt-16 sm:-mt-20">
         <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-surface-0 p-5 shadow-lg sm:p-6">
           <div className="grid grid-cols-2 items-center gap-4 sm:grid-cols-4">
             <div className="flex flex-col items-center gap-2">
@@ -305,7 +374,7 @@ export function ProjectDetail({ project }) {
             {/* ============ Tab: AI Report ============ */}
             {tab === "report" && (
               <div className="space-y-8">
-                {aiLoading ? (
+                {aiLoading || reportLoading ? (
                   <div className="space-y-4" aria-busy>
                     <SkeletonText lines={4} />
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -330,7 +399,9 @@ export function ProjectDetail({ project }) {
                       <div className="text-center sm:text-start">
                         <p className="font-heading text-lg font-bold">{t("report.overall")}</p>
                         <p className="mt-1 text-sm text-text-secondary">
-                          {t("report.confidence", { value: 87 })}
+                          {t("report.confidence", {
+                            value: Math.round(reportData?.evaluation?.confidence_score ?? 87),
+                          })}
                         </p>
                         <p className="mt-3 text-sm text-text-secondary">{t("report.asyncNote")}</p>
                       </div>
@@ -350,57 +421,68 @@ export function ProjectDetail({ project }) {
                       />
                     )}
 
-                    {/* dimensions + full: dimension scores */}
+                    {/* dimensions + full: dimension scores + radar */}
                     {canViewDimensions && (
                       <>
                         <section aria-label={t("report.dimensionsTitle")}>
                           <h3 className="mb-4 font-heading text-lg font-bold">{t("report.dimensionsTitle")}</h3>
                           <div className="mb-4 rounded-xl border border-border bg-surface-1 p-6">
-                            <RadarChart dimensions={project.dimensions} labels={radarLabels} />
+                            <RadarChart
+                              dimensions={radar.dimensions}
+                              labels={radar.labels}
+                              missingDimensions={radar.missingDimensions}
+                            />
                           </div>
                           <div className="space-y-4 rounded-xl border border-border bg-surface-1 p-6">
-                            {dimensionKeys.filter((dim) => typeof project.dimensions[dim] === "number").map((dim) => (
-                              <div key={dim} className="flex items-center gap-3">
-                                <span className="w-32 shrink-0 text-sm font-medium text-text-primary">
-                                  {t(`report.dimensions.${dim}`)}
-                                </span>
-                                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-0">
-                                  <motion.div
-                                    className={cn(
-                                      "h-full rounded-full",
-                                      tier === "excellent" || tier === "good"
-                                        ? "bg-primary-600"
-                                        : tier === "medium"
-                                          ? "bg-warning"
-                                          : "bg-danger"
-                                    )}
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${project.dimensions[dim]}%` }}
-                                    transition={{ duration: 0.8, delay: 0.1 * dimensionKeys.indexOf(dim), ease: "easeOut" }}
-                                  />
+                            {dimensionKeys
+                              .filter((dim) => typeof radar.dimensions[dim] === "number")
+                              .map((dim) => (
+                                <div key={dim} className="flex items-center gap-3">
+                                  <span className="w-32 shrink-0 text-sm font-medium text-text-primary">
+                                    {t(`report.dimensions.${dim}`)}
+                                  </span>
+                                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-0">
+                                    <motion.div
+                                      className={cn(
+                                        "h-full rounded-full",
+                                        tier === "excellent" || tier === "good"
+                                          ? "bg-primary-600"
+                                          : tier === "medium"
+                                            ? "bg-warning"
+                                            : "bg-danger"
+                                      )}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${radar.dimensions[dim]}%` }}
+                                      transition={{ duration: 0.8, delay: 0.1 * dimensionKeys.indexOf(dim), ease: "easeOut" }}
+                                    />
+                                  </div>
+                                  <span className="w-10 text-end font-heading text-sm font-bold text-text-primary">
+                                    {radar.dimensions[dim]}
+                                  </span>
                                 </div>
-                                <span className="w-10 text-end font-heading text-sm font-bold text-text-primary">
-                                  {project.dimensions[dim]}
-                                </span>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         </section>
 
-                        {/* full level only: SWOT + gap analysis */}
+                        {/* full level only: warnings + SWOT + gaps + recommendations + skills + export */}
                         {canViewFull && (
                           <>
+                            {Array.isArray(reportData?.evaluation?.warnings) &&
+                              reportData.evaluation.warnings.length > 0 && (
+                                <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-tint-warning px-3 py-2 text-sm text-warning-ink">
+                                  <WarningCircle size={18} className="mt-0.5 shrink-0" weight="bold" aria-hidden />
+                                  <ul className="space-y-1">
+                                    {reportData.evaluation.warnings.map((w, i) => (
+                                      <li key={i}>{w}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
                             <section aria-label={t("report.swot")}>
                               <h3 className="mb-4 font-heading text-lg font-bold">{t("report.swot")}</h3>
                               <div className="grid gap-4 sm:grid-cols-2">
-                                {(
-                                  [
-                                    { key: "strengths" },
-                                    { key: "weaknesses" },
-                                    { key: "opportunities" },
-                                    { key: "threats" },
-                                  ]
-                                ).map(({ key }) => (
+                                {(["strengths", "weaknesses", "opportunities", "threats"]).map((key) => (
                                   <div
                                     key={key}
                                     className="rounded-xl border border-border bg-surface-1 p-5"
@@ -410,10 +492,10 @@ export function ProjectDetail({ project }) {
                                       {t(`report.swotItems.${key}.title`)}
                                     </h4>
                                     <ul className="space-y-2">
-                                      {project.swot[key].map((item, i) => (
+                                      {(swotSource[key] ?? []).map((item, i) => (
                                         <li key={i} className="flex items-start gap-2 text-sm text-text-primary">
                                           <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-text-secondary/50" />
-                                          {locale === "ar" ? item.ar : item.en}
+                                          {typeof item === "string" ? item : locale === "ar" ? item.ar : item.en}
                                         </li>
                                       ))}
                                     </ul>
@@ -422,40 +504,27 @@ export function ProjectDetail({ project }) {
                               </div>
                             </section>
 
-                            <section aria-label={t("report.gapsTitle")}>
-                              <h3 className="mb-4 font-heading text-lg font-bold">{t("report.gapsTitle")}</h3>
-                              <div className="space-y-3">
-                                {(["technical", "market", "team", "documentation"]).map((gap, i) => (
-                                  <div key={gap} className="flex items-start gap-4 rounded-xl border border-border bg-surface-1 p-5">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-100 font-heading text-sm font-bold text-primary-600">
-                                      {i + 1}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <p className="font-heading text-sm font-semibold text-text-primary">
-                                          {t(`report.gaps.${gap}.title`)}
-                                        </p>
-                                        <span
-                                          className={cn(
-                                            "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                            i === 0
-                                              ? "bg-tint-danger text-danger-ink"
-                                              : i === 1
-                                                ? "bg-tint-warning text-warning-ink"
-                                                : "bg-tint-success text-success-ink"
-                                          )}
-                                        >
-                                          {t(`report.priority.${i === 0 ? "high" : i === 1 ? "medium" : "low"}`)}
-                                        </span>
-                                      </div>
-                                      <p className="mt-1.5 text-sm text-text-secondary">
-                                        {t(`report.gaps.${gap}.recommendation`)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </section>
+                            <GapAnalysisPanel
+                              gaps={reportData?.evaluation?.gap_analysis}
+                              dimensionScores={dimensionScores}
+                            />
+
+                            <RecommendationsList
+                              recommendations={reportData?.evaluation?.recommendations}
+                            />
+
+                            <RequiredSkillsList
+                              skills={reportData?.evaluation?.required_skills}
+                              teamMeta={reportData?.team_meta}
+                            />
+
+                            <div className="flex justify-end">
+                              <ExportPdfButton
+                                exportMeta={reportData?.export}
+                                locale={locale}
+                                filename={`evaluation-report-${project.evaluationId}-${locale}.pdf`}
+                              />
+                            </div>
                           </>
                         )}
                       </>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\EnforceReportDisclosure;
 use App\Http\Middleware\EnsureEmailVerified;
 use App\Http\Middleware\IdeaOwnerMiddleware;
 use App\Http\Middleware\InvestorMiddleware;
@@ -38,6 +39,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'token.refresh' => RefreshSanctumToken::class,
             'rate.violations' => TrackRateLimitViolations::class,
             'role.pending' => PendingRoleMiddleware::class,
+            // EPIC-05: مصفوفة الإفصاح عن تقرير AI — يفرض المستوى ويرفض الحقول المحمية (US-029).
+            'report.disclosure' => EnforceReportDisclosure::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

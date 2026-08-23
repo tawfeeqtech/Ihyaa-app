@@ -27,6 +27,7 @@ export function Header({ hideAuthActions = false }) {
 
   const links = [
     { href: "/projects", label: t("explore") },
+    { href: "/search", label: t("search") },
     { href: "/#how-it-works", label: t("howItWorks") },
     { href: "/#ai-showcase", label: t("about") },
   ];
