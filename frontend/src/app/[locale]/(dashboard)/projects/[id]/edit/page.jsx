@@ -15,13 +15,14 @@ import {
 } from "@phosphor-icons/react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Link } from "@/config/i18n/link";
+import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { Skeleton } from "@/shared/components/Skeleton";
 import { useToast } from "@/shared/components/Toast";
 import { api } from "@/shared/lib/api";
 import { RequireVerifiedEmail } from "@/features/auth/utils/guards";
+import { ReevaluationAlert } from "@/features/projects/components/ReevaluationAlert";
 import { cn } from "@/shared/utils";
 
 const inputClasses =
@@ -57,6 +58,7 @@ const emptyForm = {
 export default function EditProjectPage() {
   const t = useTranslations("projects");
   const toast = useToast();
+  const router = useRouter();
   const params = useParams();
   const id = params?.id;
 
@@ -64,6 +66,8 @@ export default function EditProjectPage() {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(null); // "draft" | "published" | null
   const [saved, setSaved] = useState(null); // شاشة النجاح بعد الحفظ/النشر
+  // T081: إعادة التقييم المقترحة عند تغيير بيانات جوهرية (significant_changes).
+  const [reevalOpen, setReevalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [categories, setCategories] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -243,11 +247,13 @@ export default function EditProjectPage() {
     }
     setSaving(publicationStatus);
     try {
-      await api.put(`/projects/${id}`, buildPayload(publicationStatus));
+      const res = await api.put(`/projects/${id}`, buildPayload(publicationStatus));
       setSaved(publicationStatus);
       toast.success(
         publicationStatus === "draft" ? t("edit.draftSaved") : t("edit.published")
       );
+      // T081: بيانات جوهرية تغيّرت (SRS-AI-C02) → اعرض اقتراح إعادة التقييم.
+      if (res?.significant_changes) setReevalOpen(true);
     } catch (err) {
       const body = err.body;
       const msg =
@@ -267,25 +273,37 @@ export default function EditProjectPage() {
     const titleKey = isDraft ? "edit.draftSuccessTitle" : "edit.publishedSuccessTitle";
     const descKey = isDraft ? "edit.draftSuccessDescription" : "edit.publishedSuccessDescription";
     return (
-      <div className="mx-auto max-w-lg py-10 text-center">
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 260, damping: 18 }}
-          className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tint-success"
-        >
-          <CheckCircle size={52} weight="light" className="text-success-ink" />
-        </motion.span>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <h1 className="mt-6 font-heading text-2xl font-bold sm:text-3xl">{t(titleKey)}</h1>
-          <p className="mt-3 text-text-secondary">{t(descKey)}</p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/dashboard/owner">
-              <Button size="lg">{t("edit.backToDashboard")}</Button>
-            </Link>
-          </div>
-        </motion.div>
-      </div>
+      <>
+        <div className="mx-auto max-w-lg py-10 text-center">
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18 }}
+            className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tint-success"
+          >
+            <CheckCircle size={52} weight="light" className="text-success-ink" />
+          </motion.span>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <h1 className="mt-6 font-heading text-2xl font-bold sm:text-3xl">{t(titleKey)}</h1>
+            <p className="mt-3 text-text-secondary">{t(descKey)}</p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/dashboard/owner">
+                <Button size="lg">{t("edit.backToDashboard")}</Button>
+              </Link>
+              <Link href={`/projects/${id}`}>
+                <Button variant="secondary" size="lg">{t("edit.viewProject")}</Button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+        {/* T081 · SRS-AI-C02: تغيّرت بيانات جوهرية → اقتراح إعادة التقييم */}
+        <ReevaluationAlert
+          open={reevalOpen}
+          projectId={id}
+          onClose={() => setReevalOpen(false)}
+          onQueued={() => router.push(`/projects/${id}`)}
+        />
+      </>
     );
   }
 

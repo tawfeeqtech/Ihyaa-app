@@ -2,6 +2,8 @@
 
 namespace App\Ai\Providers;
 
+use App\Ai\Support\EvaluationTimeBudget;
+use App\Exceptions\Ai\EvaluationTimeoutException;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Promise\Create;
@@ -32,12 +34,15 @@ final class ConcurrentDispatcher
      * @param  int  $concurrency  عدد الطلبات المتزامنة (SRS-AI-P01 — 5)
      * @param  float  $timeout  مهلة كل طلب بالثواني (SRS-AI-P03/E01 — 45)
      * @param  float  $connectTimeout  مهلة الاتصال بالثواني (10)
+     * @param  EvaluationTimeBudget|null  $budget  ميزانية إجمالية (سقف 180s — T069)؛
+     *                                    إذا غابت تُنشأ تلقائياً لكل run() عند انطلاقها
      */
     public function __construct(
         private readonly int $concurrency = 5,
         private readonly float $timeout = 45,
         private readonly float $connectTimeout = 10,
         ?ClientInterface $client = null,
+        private readonly ?EvaluationTimeBudget $budget = null,
     ) {
         $this->client = $client ?? new GuzzleClient([
             'timeout' => $this->timeout,
@@ -61,6 +66,15 @@ final class ConcurrentDispatcher
     }
 
     /**
+     * الميزانية المحقونة (إن وُجدت) — لاستعلام `shouldStopEscalation()`
+     * من طبقة التصعيد. غيابها يعني أن run() يُنشئ ميزانية جديدة لكل استدعاء.
+     */
+    public function budget(): ?EvaluationTimeBudget
+    {
+        return $this->budget;
+    }
+
+    /**
      * عميل Guzzle المهرّأ بوقت المهلة المحدد — لبناء طلبات async حقيقية.
      */
     public function client(): ClientInterface
@@ -79,10 +93,13 @@ final class ConcurrentDispatcher
      */
     public function run(array $tasks): array
     {
+        // T069: ميزانية زمنية لكل تشغيل (سقف 180s) — تُنشأ عند الانطلاق إن لم تُحقن.
+        $budget = $this->budget ?? EvaluationTimeBudget::start();
+
         $results = [];
         $failures = [];
 
-        $pool = new EachPromise($this->promises($tasks), [
+        $pool = new EachPromise($this->promises($tasks, $budget), [
             'concurrency' => $this->concurrency,
             'fulfilled' => function (mixed $value, string $key) use (&$results): void {
                 $results[$key] = $value;
@@ -116,13 +133,23 @@ final class ConcurrentDispatcher
      * مولّد كسول للوعود — يُنشئ كل وعد عند طلبه من المجمّع،
      * فيفرض التزامن الفعلي (لا تُطلق الطلبات دفعة واحدة).
      *
+     * T069: قبل إطلاق كل مهمة نتحقق من الميزانية — عند امتلائها نرفض المجمّع
+     * بخطأ EvaluationTimeoutException (سقف 180s · SRS-AI-P02) ولا تُطلق مهام جديدة
+     * (يتوقف التصعيد، والمجمّع يستقر على المهام المطلقة مسبقاً ثم يُترجم الخطأ إلى failed).
+     *
      * @param  array<string, callable(): (PromiseInterface|mixed)>  $tasks
      *
      * @return \Generator<string, PromiseInterface>
+     *
+     * @throws EvaluationTimeoutException
      */
-    private function promises(array $tasks): \Generator
+    private function promises(array $tasks, EvaluationTimeBudget $budget): \Generator
     {
         foreach ($tasks as $key => $task) {
+            if (! $budget->canLaunch()) {
+                throw new EvaluationTimeoutException($budget->ceilingSeconds(), $budget->elapsedSeconds());
+            }
+
             yield $key => $this->toPromise($task);
         }
     }

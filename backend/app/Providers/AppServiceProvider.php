@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Evaluation;
 use App\Models\Project;
+use App\Observers\EvaluationObserver;
 use App\Observers\ProjectObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
 
         // مزامنة فهرس البحث تلقائياً عند إنشاء/تعديل/حذف/استرجاع المشاريع (plan §5.3 · T127)
         Project::observe(ProjectObserver::class);
+
+        // T050: مصدر الأحداث النهائية للتقييم (completed/failed/partial) — يطلقها المرصاد
+        // عند `saved` بحالة نهائية بدل تصريح مباشر من الخدمة (لا إطلاق مزدوج).
+        Evaluation::observe(EvaluationObserver::class);
 
         // رابط إعادة تعيين كلمة المرور يشير إلى الواجهة (Next.js) وليس إلى مسار Laravel (SPA/API — US-004)
         ResetPassword::createUrlUsing(function ($user, string $token) {

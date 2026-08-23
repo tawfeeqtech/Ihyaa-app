@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowsClockwise,
   Bookmark,
   BookmarkSimple,
   CalendarBlank,
   CaretLeft,
   CaretRight,
+  ClockCounterClockwise,
   DownloadSimple,
   Eye,
   FilePdf,
@@ -33,7 +35,10 @@ import { ImageGallery } from "./ImageGallery";
 import { PdfViewer } from "./PdfViewer";
 import { VideoEmbed } from "./VideoEmbed";
 import { ScoreRing } from "./ScoreRing";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
+import { EvaluationComparisonChart } from "./EvaluationComparisonChart";
 import { fetchReportData, missingRadarDimensions, DIMENSION_KEY_MAP } from "../lib/report";
+import { fetchEvaluationHistory, postReevaluate } from "../lib/evaluation";
 import { SkeletonText } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
@@ -41,16 +46,30 @@ import { projects, sectorLabels, statusLabels } from "@/features/projects/data/p
 import { api } from "@/shared/lib/api";
 import { avatarHue, cn, initials } from "@/shared/utils";
 
-/** Auth detection via cookie check (deferred to avoid hydration mismatch). */
-function useDemoAuth() {
-  const [authed, setAuthed] = useState(false);
+/**
+ * Deferred viewer detection (auth + role cookies) to avoid hydration mismatch.
+ * `ready` flips true after the first paint so owner-only UI settles correctly.
+ */
+function useViewer() {
+  const [viewer, setViewer] = useState({ ready: false, authed: false, role: null });
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setAuthed(document.cookie.includes("ihyaa_token="));
+      setViewer({
+        ready: true,
+        authed: document.cookie.includes("ihyaa_token="),
+        role: readRoleCookie(),
+      });
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
-  return authed;
+  return viewer;
+}
+
+/** Read a cookie value in the browser (mirrors @/shared/lib/api). */
+function readRoleCookie() {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )ihyaa_role=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 const dimensionKeys = ["technical", "innovation", "market", "team", "documentation"];
@@ -68,13 +87,21 @@ export function ProjectDetail({ project }) {
   const format = useFormatter();
   const toast = useToast();
   const router = useRouter();
-  const authed = useDemoAuth();
+  const viewer = useViewer();
+  const authed = viewer.authed;
 
   // Disclosure level for the AI report, driven by the backend's `report_access`
   // (none | overall | dimensions | full) — not by the demo auth cookie.
   const reportAccess = project.report_access ?? "none";
   const canViewDimensions = reportAccess === "dimensions" || reportAccess === "full";
   const canViewFull = reportAccess === "full";
+
+  // Owner-only actions (re-evaluate, comparison, retry) — SRS-AI-C02 · US-023.
+  // The backend does not expose `is_owner` yet, so fall back to role+access:
+  // an idea-owner viewer with `full` disclosure is the project owner.
+  const isOwner =
+    project.is_owner === true ||
+    (viewer.role === "idea_owner" && canViewFull);
 
   const [tab, setTab] = useState("overview");
   const [interestSent, setInterestSent] = useState(false);
@@ -108,6 +135,66 @@ export function ProjectDetail({ project }) {
   }, [shouldFetchReport, project.id, project.evaluationId]);
 
   const reportLoading = shouldFetchReport && !reportReady;
+
+  // ———— Evaluation history + comparison (T063 · T085) ————
+  // GET /projects/{id}/evaluations — last 5 completed, newest-first. The
+  // owner-only `comparison` (version-over-version dimension scores) is included
+  // only for the owner (US-023).
+  const [historyData, setHistoryData] = useState(null);
+  const [historyReady, setHistoryReady] = useState(false);
+
+  useEffect(() => {
+    if (!canViewDimensions || !viewer.ready) return;
+    let cancelled = false;
+    fetchEvaluationHistory(project.id, { includeComparison: isOwner }).then((data) => {
+      if (cancelled) return;
+      setHistoryData(data);
+      setHistoryReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewDimensions, viewer.ready, isOwner, project.id]);
+
+  const historyLoading = canViewDimensions && viewer.ready && !historyReady;
+
+  // ———— Re-evaluate (T076 · SRS-AI-C02) ————
+  const [reevalOpen, setReevalOpen] = useState(false);
+  const [reevalSubmitting, setReevalSubmitting] = useState(false);
+  const [reevalQueued, setReevalQueued] = useState(false);
+  // Bumped after a re-eval is queued so the status badge refetches immediately
+  // and resumes polling the new run.
+  const [reevalSignal, setReevalSignal] = useState(0);
+
+  const confirmReevaluate = async () => {
+    setReevalOpen(false);
+    setReevalSubmitting(true);
+    try {
+      await postReevaluate(project.id, true);
+      setReevalQueued(true);
+      setReevalSignal((s) => s + 1);
+      toast.success(t("report.reevalQueued"));
+    } catch (err) {
+      // 429 COOLDOWN_ACTIVE → err.body.message already carries the countdown.
+      toast.error(err?.body?.message ?? t("report.reevalFailed"));
+    } finally {
+      setReevalSubmitting(false);
+    }
+  };
+
+  // Live-report refresh — when the badge observes a completed/partial run
+  // (e.g. a re-evaluation finishing), refetch the report without reloading.
+  const handleStatusChange = (statusKey, status) => {
+    if (statusKey !== "completed" && statusKey !== "partial") return;
+    const evalId = status?.latest_evaluation_id ?? project.evaluationId;
+    if (!evalId) return;
+    fetchReportData(project.id, evalId).then((data) => {
+      if (data) {
+        setReportData(data);
+        setReportReady(true);
+      }
+    });
+  };
 
   // Radar source of truth: `radar_chart.axes` from the report endpoint when
   // available (US-025-S2 — single stored source), else the legacy dimensions.
@@ -407,6 +494,34 @@ export function ProjectDetail({ project }) {
                       </div>
                     </div>
 
+                    {/* Live evaluation status — owner only (T052 · T073 · T077) */}
+                    {isOwner && (
+                      <EvaluationStatusBadge
+                        projectId={project.id}
+                        refreshSignal={reevalSignal}
+                        onStatusChange={handleStatusChange}
+                      />
+                    )}
+
+                    {/* Re-evaluate action — owner only (T076 · SRS-AI-C02) */}
+                    {isOwner && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-1 px-4 py-3">
+                        <p className="flex items-center gap-2 text-sm text-text-secondary">
+                          <ArrowsClockwise size={18} className="shrink-0 text-primary-600" aria-hidden />
+                          {reevalQueued ? t("report.reevalQueued") : t("report.reevaluateHint")}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setReevalOpen(true)}
+                          disabled={reevalQueued}
+                        >
+                          <ArrowsClockwise size={16} weight="bold" aria-hidden />
+                          {t("report.reevaluate")}
+                        </Button>
+                      </div>
+                    )}
+
                     {/* overall level: only the overall score, sign-in unlocks dimensions */}
                     {reportAccess === "overall" && (
                       <EmptyState
@@ -526,6 +641,67 @@ export function ProjectDetail({ project }) {
                               />
                             </div>
                           </>
+                        )}
+
+                        {/* Evaluation history — last 5 completed (T063 · US-018/023) */}
+                        <section aria-label={t("report.evaluationHistoryTitle")} className="space-y-4">
+                          <h3 className="font-heading text-lg font-bold">{t("report.evaluationHistoryTitle")}</h3>
+                          {historyLoading ? (
+                            <SkeletonText lines={3} />
+                          ) : !historyData?.evaluations?.length ? (
+                            <EmptyState
+                              icon={ClockCounterClockwise}
+                              title={t("report.evaluationHistoryEmpty")}
+                              description={t("report.evaluationHistoryEmptyDesc")}
+                            />
+                          ) : (
+                            <ol className="space-y-3">
+                              {historyData.evaluations.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface-1 px-4 py-3"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-100 font-heading text-sm font-bold text-primary-600">
+                                      {item.version}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-text-primary">
+                                        {t("report.evaluationVersion", { version: item.version })}
+                                      </p>
+                                      <p className="text-xs text-text-secondary">
+                                        {item.completed_at
+                                          ? format.dateTime(new Date(item.completed_at), { dateStyle: "medium", timeStyle: "short" })
+                                          : "—"}
+                                        {item.model_used ? ` · ${item.model_used}` : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-end">
+                                    <p className="font-heading text-lg font-bold text-primary-600">
+                                      {typeof item.overall_score === "number" ? item.overall_score : "—"}
+                                    </p>
+                                    <p className="text-xs text-text-secondary">{t("report.overall")}</p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ol>
+                          )}
+                        </section>
+
+                        {/* Comparison across versions — owner only (T085 · US-023) */}
+                        {isOwner && (
+                          <section aria-label={t("report.comparisonTitle")} className="space-y-4">
+                            <div>
+                              <h3 className="font-heading text-lg font-bold">{t("report.comparisonTitle")}</h3>
+                              <p className="mt-1 text-sm text-text-secondary">{t("report.comparisonDescription")}</p>
+                            </div>
+                            {historyLoading ? (
+                              <SkeletonText lines={4} />
+                            ) : (
+                              <EvaluationComparisonChart comparison={historyData?.comparison ?? []} />
+                            )}
+                          </section>
                         )}
                       </>
                     )}
@@ -658,6 +834,55 @@ export function ProjectDetail({ project }) {
           {t("detail.backToGallery")}
         </Link>
       </nav>
+
+      {/* Re-evaluate confirmation dialog (T076 · SRS-AI-C02) */}
+      <AnimatePresence>
+        {reevalOpen && (
+          <motion.div
+            className="fixed inset-0 z-100 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="presentation"
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setReevalOpen(false)}
+              aria-hidden
+            />
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="reeval-dialog-title"
+              aria-describedby="reeval-dialog-desc"
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative w-full max-w-md rounded-2xl border border-border bg-surface-0 p-6 shadow-xl"
+            >
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent-100">
+                <ArrowsClockwise size={28} weight="bold" className="text-primary-600" aria-hidden />
+              </span>
+              <h2 id="reeval-dialog-title" className="mt-4 text-center font-heading text-lg font-bold text-text-primary">
+                {t("report.reevaluateConfirmTitle")}
+              </h2>
+              <p id="reeval-dialog-desc" className="mt-2 text-center text-sm leading-relaxed text-text-secondary">
+                {t("report.reevaluateConfirmBody")}
+              </p>
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+                <Button variant="secondary" onClick={() => setReevalOpen(false)}>
+                  {t("report.reevaluateCancel")}
+                </Button>
+                <Button loading={reevalSubmitting} onClick={confirmReevaluate}>
+                  <ArrowsClockwise size={18} weight="bold" aria-hidden />
+                  {t("report.reevaluateConfirm")}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

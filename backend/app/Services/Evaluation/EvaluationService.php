@@ -6,9 +6,7 @@ use App\Ai\Agents\EvaluationOrchestrator;
 use App\Ai\Dtos\EvaluationReport;
 use App\Enums\EvaluationStatus;
 use App\Enums\ModelUsed;
-use App\Events\EvaluationCompleted;
-use App\Events\EvaluationFailed;
-use App\Events\EvaluationPartial;
+use App\Events\AllAiProvidersFailed;
 use App\Exceptions\Ai\AllProvidersFailedException;
 use App\Exceptions\Ai\EvaluationCooldownException;
 use App\Exceptions\Ai\EvaluationInProgressException;
@@ -140,7 +138,7 @@ final class EvaluationService
 
         if (now()->lt($nextAllowedAt)) {
             throw new EvaluationCooldownException(
-                max(1, (int) $nextAllowedAt->diffInSeconds(now())),
+                max(1, (int) now()->diffInSeconds($nextAllowedAt)),
                 $nextAllowedAt,
             );
         }
@@ -199,7 +197,7 @@ final class EvaluationService
             return null;
         }
 
-        $remainingMinutes = max(1, (int) ceil($nextAllowedAt->diffInMinutes(now())));
+        $remainingMinutes = max(1, (int) ceil(now()->diffInMinutes($nextAllowedAt)));
         $hours = intdiv($remainingMinutes, 60);
         $minutes = $remainingMinutes % 60;
 
@@ -209,7 +207,7 @@ final class EvaluationService
             'status' => $latest->status->value,
             'last_evaluation_at' => $latest->completed_at->toISOString(),
             'next_evaluation_at' => $nextAllowedAt->toISOString(),
-            'remaining_seconds' => max(1, (int) $nextAllowedAt->diffInSeconds(now())),
+            'remaining_seconds' => max(1, (int) now()->diffInSeconds($nextAllowedAt)),
             'message' => sprintf(
                 'آخر تقييم: %s — التقييم التالي بعد %d ساعة %d دقيقة',
                 $latest->completed_at->format('Y-m-d'),
@@ -235,7 +233,7 @@ final class EvaluationService
         return [
             'next_evaluation_at' => $next->toISOString(),
             'remaining_seconds' => now()->lt($next)
-                ? max(1, (int) $next->diffInSeconds(now()))
+                ? max(1, (int) now()->diffInSeconds($next))
                 : 0,
         ];
     }
@@ -327,11 +325,8 @@ final class EvaluationService
             max(1, (int) ($cooldown['remaining_seconds'] ?? 1)),
         );
 
-        // الحدث النهائي بعد الالتزام — يمسك المستمعون الحالة المحفوظة.
-        match ($terminal) {
-            EvaluationStatus::PARTIAL => EvaluationPartial::dispatch($evaluation),
-            default => EvaluationCompleted::dispatch($evaluation),
-        };
+        // T050: الحدث النهائي يطلقه EvaluationObserver عند `saved` بالحالة النهائية
+        // (حارس wasChanged('status')) — لا تصريح مباشر هنا (منع الإطلاق المزدوج).
 
         return $evaluation;
     }
@@ -364,7 +359,13 @@ final class EvaluationService
         // فشل ← لا cooldown — أزل أي مؤقّت قديم (SRS-AI-E05).
         $this->cacheService->forgetProject((int) $evaluation->project_id);
 
-        EvaluationFailed::dispatch($evaluation);
+        // T050: حدث الفشل يطلقه EvaluationObserver عند `saved` (حارس wasChanged('status')) — لا تصريح مزدوج.
+
+        // T059: فشل جميع المزوّدين معاً → تنبيه داخلي للمشرفين (FR-222) —
+        // بلا كشف الخطأ التقني الخام للمستخدم (SRS-AI-F04 · المبدأ V).
+        if ($e instanceof AllProvidersFailedException) {
+            AllAiProvidersFailed::dispatch($evaluation, $e->failures());
+        }
 
         return $evaluation;
     }

@@ -420,7 +420,41 @@
       "exporting": "جارٍ التصدير…",
       "exportLogin": "سجّل الدخول لتصدير التقرير",
       "exportDenied": "التصدير متاح لصاحب المشروع أو بعد الاتفاق فقط",
-      "exportError": "تعذّر تصدير التقرير — حاول مجدداً"
+      "exportError": "تعذّر تصدير التقرير — حاول مجدداً",
+      "statusProcessing": "جارٍ التقييم…",
+      "statusProcessingProgress": "{done} من {total} أبعاد مكتملة",
+      "statusFailed": "فشل التقييم",
+      "statusFailedHint": "تعذّر إكمال التقييم — يمكنك إعادة المحاولة",
+      "retry": "إعادة المحاولة",
+      "retryQueued": "تمت إعادة المحاولة — جارٍ التقييم",
+      "retryFailed": "تعذّرت إعادة المحاولة",
+      "statusPartial": "تقييم جزئي",
+      "statusPartialHint": "اكتمل {done} من {total} أبعاد — وقد تظهر بعض التحليلات ناقصة",
+      "reevalCooldown": "التقييم التالي متاح بعد {hours} ساعة و {minutes} دقيقة",
+      "reevaluate": "إعادة التقييم",
+      "reevaluateHint": "إعادة التقييم تُحدّث نتيجة الذكاء الاصطناعي بعد تغيّر بيانات مشروعك (مرة كل 24 ساعة)",
+      "reevalQueued": "تمت جدولة إعادة التقييم — سنخبرك عند اكتمالها",
+      "reevalFailed": "تعذّر طلب إعادة التقييم",
+      "reevaluateConfirmTitle": "تأكيد إعادة التقييم",
+      "reevaluateConfirmBody": "سيتم تقييم مشروعك من جديد وقد يستغرق حتى 3 دقائق — متابعة؟",
+      "reevaluateConfirm": "متابعة",
+      "reevaluateCancel": "إلغاء",
+      "evaluationHistoryTitle": "سجل التقييمات",
+      "evaluationHistoryEmpty": "لا توجد تقييمات مكتملة بعد",
+      "evaluationHistoryEmptyDesc": "عند اكتمال أول تقييم لمشروعك سيظهر هنا",
+      "evaluationVersion": "التقييم {version}",
+      "comparisonTitle": "مقارنة التقييمات",
+      "comparisonDescription": "تطوّر تقييم مشروعك عبر آخر التقييمات",
+      "comparisonEmpty": "لا توجد بيانات كافية للمقارنة بعد",
+      "comparisonTrend": {
+        "up": "تحسّن",
+        "down": "تراجع",
+        "flat": "بدون تغيير"
+      },
+      "reevalAlertTitle": "تم حفظ التغييرات",
+      "reevalAlertBody": "غيّرت تغييراتك بيانات جوهرية في مشروعك. هل تريد إعادة تقييمه الآن؟",
+      "reevalConfirm": "نعم، أعد التقييم",
+      "reevalLater": "ليس الآن"
     },
     "agreement": {
       "title": "اتفاقية التعاون",
@@ -527,7 +561,8 @@
       "draftSuccessTitle": "تم حفظ المسودة",
       "draftSuccessDescription": "حُفظ مشروعك كمسودة — يمكنك نشره من لوحة التحكم في أي وقت",
       "publishedSuccessTitle": "تم نشر المشروع",
-      "publishedSuccessDescription": "مشروعك أصبح متاحاً للمستثمرين في المعرض"
+      "publishedSuccessDescription": "مشروعك أصبح متاحاً للمستثمرين في المعرض",
+      "viewProject": "عرض المشروع"
     }
   },
   "dashboard": {

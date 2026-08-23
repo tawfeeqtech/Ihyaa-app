@@ -29,9 +29,11 @@ class ProjectService
     /**
      * تحديث المشروع (SRS-API-16).
      *
-     * @return array{project: Project, significant_changes: bool}
+     * @return array{project: Project, significant_changes: bool, changed_significant_fields: list<string>}
      *         significant_changes: تغيّرت الحقول الجوهرية → اقتراح إعادة تقييم يدوية
      *         (لا تلقائية إطلاقاً — SRS-F04-02).
+     *         changed_significant_fields: أسماء الحقول الجوهرية التي تغيّرت فعلاً
+     *         (لحدث ProjectContentChanged — T079).
      */
     public function update(Project $project, array $data): array
     {
@@ -39,13 +41,15 @@ class ProjectService
 
         $project->update($this->applyVideoProviderInference($data));
 
-        $significantChanged = collect($original)->some(
-            fn ($value, $key) => json_encode($value) !== json_encode($project->{$key})
-        );
+        $changedFields = collect(self::SIGNIFICANT_FIELDS)
+            ->filter(fn (string $key) => json_encode($original[$key] ?? null) !== json_encode($project->{$key}))
+            ->values()
+            ->all();
 
         return [
             'project' => $project,
-            'significant_changes' => $significantChanged,
+            'significant_changes' => $changedFields !== [],
+            'changed_significant_fields' => $changedFields,
         ];
     }
 

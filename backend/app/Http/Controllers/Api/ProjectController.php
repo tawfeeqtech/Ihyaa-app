@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\EvaluationStatus;
 use App\Enums\ProjectState;
 use App\Enums\ProjectStatus;
+use App\Events\ProjectContentChanged;
 use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use App\Http\Resources\ProjectResource;
@@ -105,11 +106,21 @@ class ProjectController
         $result = $this->projects->update($project, $request->validated());
         $result['project']->refresh()->load(['category', 'files', 'owner']);
 
-        // T166: significant_changes بدل needs_reevaluation (contract §PUT)
-        return $this->success([
+        // T166: significant_changes بدل needs_reevaluation (contract §PUT · US-022)
+        $response = [
             'project' => ProjectResource::make($result['project'])->detail($request->user()),
             'significant_changes' => $result['significant_changes'],
-        ], __('projects.updated'));
+        ];
+
+        // T079: تغييرات جوهرية → prompt يرشد المستخدم (contract §PUT) + حدث ProjectContentChanged
+        // (InvalidateEvaluationCache لا يُبطل هنا بموجب SRS-AI-C02 — الحذف عند تأكيد إعادة التقييم فقط).
+        if ($result['significant_changes']) {
+            $response['prompt'] = 'لقد أجريت تغييرات جوهرية. هل تريد إعادة تقييم مشروعك؟';
+
+            ProjectContentChanged::dispatch($result['project'], $result['changed_significant_fields']);
+        }
+
+        return $this->success($response, __('projects.updated'));
     }
 
     // ——————————————————————— L3: الحذف الناعم (RL-IO-06 · 10/دقيقة — سلة 30 يوماً) ———————————————————————

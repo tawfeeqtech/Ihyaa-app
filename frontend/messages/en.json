@@ -420,7 +420,41 @@
       "exporting": "Exporting…",
       "exportLogin": "Sign in to export the report",
       "exportDenied": "Export is available to the owner or after an agreement only",
-      "exportError": "Failed to export the report — try again"
+      "exportError": "Failed to export the report — try again",
+      "statusProcessing": "Evaluating…",
+      "statusProcessingProgress": "{done} of {total} dimensions completed",
+      "statusFailed": "Evaluation failed",
+      "statusFailedHint": "The evaluation could not be completed — you can retry",
+      "retry": "Retry",
+      "retryQueued": "Retry queued — evaluating now",
+      "retryFailed": "Retry failed",
+      "statusPartial": "Partial evaluation",
+      "statusPartialHint": "{done} of {total} dimensions completed — some analysis may be missing",
+      "reevalCooldown": "Next evaluation available in {hours}h {minutes}m",
+      "reevaluate": "Re-evaluate",
+      "reevaluateHint": "Re-evaluating refreshes the AI score after project changes (once every 24h)",
+      "reevalQueued": "Re-evaluation queued — we will notify you when it is done",
+      "reevalFailed": "Could not request re-evaluation",
+      "reevaluateConfirmTitle": "Confirm re-evaluation",
+      "reevaluateConfirmBody": "Your project will be evaluated again and it may take up to 3 minutes — continue?",
+      "reevaluateConfirm": "Continue",
+      "reevaluateCancel": "Cancel",
+      "evaluationHistoryTitle": "Evaluation history",
+      "evaluationHistoryEmpty": "No completed evaluations yet",
+      "evaluationHistoryEmptyDesc": "Your first evaluation will appear here once complete",
+      "evaluationVersion": "Evaluation {version}",
+      "comparisonTitle": "Evaluation comparison",
+      "comparisonDescription": "How your project evaluation evolved across recent runs",
+      "comparisonEmpty": "Not enough data to compare yet",
+      "comparisonTrend": {
+        "up": "Improved",
+        "down": "Regressed",
+        "flat": "Unchanged"
+      },
+      "reevalAlertTitle": "Changes saved",
+      "reevalAlertBody": "Your changes affected core project data. Would you like to re-evaluate your project now?",
+      "reevalConfirm": "Yes, re-evaluate",
+      "reevalLater": "Not now"
     },
     "agreement": {
       "title": "Collaboration agreement",
@@ -527,7 +561,8 @@
       "draftSuccessTitle": "Draft saved",
       "draftSuccessDescription": "Your project was saved as a draft — you can publish it from your dashboard anytime",
       "publishedSuccessTitle": "Project published",
-      "publishedSuccessDescription": "Your project is now visible to investors in the gallery"
+      "publishedSuccessDescription": "Your project is now visible to investors in the gallery",
+      "viewProject": "View project"
     }
   },
   "dashboard": {

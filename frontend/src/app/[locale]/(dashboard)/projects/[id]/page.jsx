@@ -28,6 +28,10 @@ function mapApiToLegacy(api) {
     // The backend derives it from the requesting user; fall back to the most
     // conservative value so nothing is leaked when the field is missing.
     report_access: api.report_access ?? "none",
+    // Whether the current viewer owns this project (owner-only actions such as
+    // re-evaluate / comparison, SRS-AI-C02, US-023). The backend does not expose
+    // this yet, so ProjectDetail falls back to role+report_access heuristics.
+    is_owner: Boolean(api.is_owner),
     // Latest evaluation id — needed to fetch the full report JSON (EPIC-05).
     evaluationId: evaluation?.id ?? null,
     dimensions: {
