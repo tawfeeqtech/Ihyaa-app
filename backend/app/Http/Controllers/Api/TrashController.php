@@ -3,35 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Project;
+use App\Services\Project\TrashService;
 use App\Support\Traits\ApiResponse;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * سلة المهملات — SRS-API-35..37 · SRS-F02-06.
  * الاسترجاع خلال 30 يوماً · الحذف النهائي التلقائي بعدها (أمر مجدول projects:purge-trash).
+ *
+ * T160: المنطق في TrashService · T162: التفويض عبر ProjectPolicy (بدل isOwner()).
  */
 class TrashController
 {
     use ApiResponse;
 
+    public function __construct(private readonly TrashService $trash)
+    {
+    }
+
     /** RL-IO-10 · 20/دقيقة */
     public function index(Request $request): JsonResponse
     {
-        $projects = $request->user()->projects()
-            ->trash()   // onlyTrashed + ضمن 30 يوماً
-            ->with(['category'])
-            ->orderByDesc('deleted_at')
-            ->paginate(Project::DEFAULT_PAGE_SIZE);
+        $projects = $this->trash->paginate($request->user());
 
-        $data = $projects->map(fn (Project $p) => array_merge($p->toCardArray(), [
-            'deleted_at' => $p->deleted_at?->toISOString(),
-            // الأيام المتبقية للاسترجاع — حساب عددي صريح (يتجنب اختلاف توقيعات Carbon)
-            'days_left' => $p->deleted_at
-                ? max(0, (int) ceil(($p->deleted_at->addDays(Project::TRASH_RECOVERY_DAYS)->timestamp - now()->timestamp) / 86400))
-                : null,
-        ]));
+        $data = $projects->map(fn (Project $p) => $this->trash->card($p));
 
         return $this->paginated($projects, $data);
     }
@@ -39,20 +36,23 @@ class TrashController
     /** RL-IO-11 · 10/دقيقة */
     public function restore(Request $request, Project $project): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
+        if ($request->user()->cannot('restore', $project)) {
             return $this->forbidden();
         }
 
-        if (! $project->trashed()) {
-            return $this->unprocessable('PROJECT_NOT_TRASHED', __('trash.not_trashed'));
-        }
+        try {
+            $this->trash->restore($project);
+        } catch (DomainException $e) {
+            if ($e->getMessage() === 'PROJECT_NOT_TRASHED') {
+                return $this->unprocessable('PROJECT_NOT_TRASHED', __('trash.not_trashed'));
+            }
 
-        // انتهت مدة الاسترجاع (30 يوماً) → حذف نهائي فقط
-        if ($project->deleted_at->lt(now()->subDays(Project::TRASH_RECOVERY_DAYS))) {
-            return $this->error('TRASH_EXPIRED', __('trash.expired'), 410);
-        }
+            if ($e->getMessage() === 'TRASH_EXPIRED') {
+                return $this->error('TRASH_EXPIRED', __('trash.expired'), 410);
+            }
 
-        $project->restore();
+            throw $e;
+        }
 
         return $this->success(['restored' => true], __('trash.restored'));
     }
@@ -60,20 +60,28 @@ class TrashController
     /** RL-IO-12 · 10/دقيقة */
     public function forceDelete(Request $request, Project $project): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
+        if ($request->user()->cannot('forceDelete', $project)) {
             return $this->forbidden();
         }
 
-        if (! $project->trashed()) {
-            return $this->unprocessable('PROJECT_NOT_TRASHED', __('trash.not_trashed'));
+        // T136 — الحذف النهائي إجراء مدمر: يتطلب تأكيداً صريحاً (confirm: true)
+        if (! $request->boolean('confirm')) {
+            return $this->unprocessable(
+                'CONFIRMATION_REQUIRED',
+                __('trash.confirm_required'),
+                ['confirm' => ['مطلوب true']],
+            );
         }
 
-        // حذف الملفات من Local Disk ثم المشروع نهائياً
-        foreach ($project->files()->withTrashed()->get() as $file) {
-            Storage::disk('public')->delete($file->file_path);
-        }
+        try {
+            $this->trash->forceDelete($project);
+        } catch (DomainException $e) {
+            if ($e->getMessage() === 'PROJECT_NOT_TRASHED') {
+                return $this->unprocessable('PROJECT_NOT_TRASHED', __('trash.not_trashed'));
+            }
 
-        $project->forceDelete();
+            throw $e;
+        }
 
         return $this->noContent(__('trash.force_deleted'));
     }

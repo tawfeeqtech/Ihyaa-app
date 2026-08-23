@@ -6,10 +6,16 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
+import { api } from "@/shared/lib/api";
 
 const inputClasses =
   "w-full rounded-lg border border-border bg-surface-1 px-4 py-3 ps-11 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20";
 
+/**
+ * T138 · US-004 — نسيت كلمة المرور.
+ * يرسل POST /forgot-password (رابط إعادة تعيين عبر البريد) ثم يعرض نجاحاً.
+ * ملاحظة: الخادم لا يكشف وجود البريد — استجابة موحّدة في كل الأحوال.
+ */
 export default function ForgotPasswordPage() {
   const t = useTranslations("auth");
   const toast = useToast();
@@ -19,7 +25,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
 
@@ -29,11 +35,27 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    // Simulate API round-trip; replace with POST /api/v1/forgot-password in Sprint 1.
-    window.setTimeout(() => {
-      setLoading(false);
+    try {
+      await api.post("/forgot-password", { email });
       setSent(true);
-    }, 600);
+    } catch (err) {
+      setError(err.body?.message ?? t("errors.generic"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setError(null);
+    setLoading(true);
+    try {
+      await api.post("/forgot-password", { email });
+      toast.info(t("forgotResent"));
+    } catch (err) {
+      toast.error(err.body?.message ?? t("errors.generic"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (sent) {
@@ -42,25 +64,13 @@ export default function ForgotPasswordPage() {
         <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-tint-success">
           <EnvelopeSimple size={36} weight="light" className="text-success-ink" />
         </span>
-        <h1 className="mt-6 font-heading text-2xl font-bold">{t("forgotSentTitle")}</h1>
+        <h1 className="mt-6 font-heading text-2xl font-bold">{t("forgotLinkSentTitle")}</h1>
         <p className="mt-3 text-text-secondary">
-          {t("forgotSentDescription", { email })}
+          {t("forgotLinkSentDescription", { email })}
         </p>
-        <p className="mt-2 text-sm text-text-secondary">{t("otpNote")}</p>
+        <p className="mt-2 text-sm text-text-secondary">{t("checkInbox")}</p>
         <div className="mt-8 space-y-3">
-          <Link href="/verify-otp" className="block">
-            <Button fullWidth size="lg">
-              {t("enterOtp")}
-            </Button>
-          </Link>
-          <Button
-            fullWidth
-            variant="secondary"
-            onClick={() => {
-              setSent(false);
-              toast.info(t("forgotResent"));
-            }}
-          >
+          <Button fullWidth size="lg" variant="secondary" onClick={handleResend} loading={loading}>
             {t("resendEmail")}
           </Button>
           <Link href="/login" className="block">

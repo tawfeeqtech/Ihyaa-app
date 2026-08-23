@@ -3,39 +3,36 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\FileType;
+use App\Http\Requests\UploadProjectFilesRequest;
 use App\Models\Project;
 use App\Models\ProjectFile;
+use App\Services\Project\FileValidationService;
 use App\Support\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /**
  * ملفات المشروع — SRS-API-18 · SRS-F02-02.
- * الحدود: 5 صور × 5MB (jpeg/png/webp) + 3 PDF × 10MB — تُفرض هنا على مستوى الطلب.
+ * الحدود: 5 صور × 5MB (jpeg/png/webp) + 3 PDF × 10MB — مركزية في config/uploads.php.
  * التخزين: Local Disk فقط (FILESYSTEM_DISK=public) — أسماء عشوائية (حماية المسار SRS-NFR-08).
+ *
+ * T162/T163: التفويض عبر ProjectPolicy::files · قواعد Laravel في UploadProjectFilesRequest.
+ * T167: شكل الرفع images[] + pdfs[] منفصلان (القرار موثَّق في العقد).
  */
 class FileController
 {
     use ApiResponse;
 
-    public const MAX_IMAGES = 5;
-
-    public const MAX_PDFS = 3;
+    public function __construct(private readonly FileValidationService $fileValidation)
+    {
+    }
 
     /** L5 — رفع الملفات (RL-IO-07 · 10/دقيقة) */
-    public function upload(Request $request, Project $project): JsonResponse
+    public function upload(UploadProjectFilesRequest $request, Project $project): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
-            return $this->forbidden();
-        }
-
-        $data = $request->validate([
-            'images' => ['nullable', 'array', 'max:'.self::MAX_IMAGES],
-            'images.*' => ['image', 'mimes:jpeg,png,webp', 'max:5120'],   // 5MB بالكيلوبايت
-            'pdfs' => ['nullable', 'array', 'max:'.self::MAX_PDFS],
-            'pdfs.*' => ['file', 'mimes:pdf', 'max:10240'],               // 10MB
-        ]);
+        $data = $request->validated();
 
         if (empty($data['images']) && empty($data['pdfs'])) {
             return $this->unprocessable('NO_FILES', __('files.none_provided'));
@@ -48,12 +45,29 @@ class FileController
         $newImages = count($data['images'] ?? []);
         $newPdfs = count($data['pdfs'] ?? []);
 
-        if ($existingImages + $newImages > self::MAX_IMAGES) {
-            return $this->unprocessable('IMAGE_LIMIT_EXCEEDED', __('files.image_limit', ['max' => self::MAX_IMAGES]));
+        if ($existingImages + $newImages > (int) config('uploads.images.count')) {
+            return $this->unprocessable('IMAGE_LIMIT_EXCEEDED', __('files.image_limit', ['max' => config('uploads.images.count')]));
         }
 
-        if ($existingPdfs + $newPdfs > self::MAX_PDFS) {
-            return $this->unprocessable('PDF_LIMIT_EXCEEDED', __('files.pdf_limit', ['max' => self::MAX_PDFS]));
+        if ($existingPdfs + $newPdfs > (int) config('uploads.pdfs.count')) {
+            return $this->unprocessable('PDF_LIMIT_EXCEEDED', __('files.pdf_limit', ['max' => config('uploads.pdfs.count')]));
+        }
+
+        // الطبقة الثانية (T135): تحقق صريح من كل ملف — MIME حقيقي + امتداد + توقيعات تنفيذية
+        foreach ($data['images'] ?? [] as $file) {
+            try {
+                $this->fileValidation->validateFile($file, FileType::IMAGE);
+            } catch (ValidationException $e) {
+                return $this->unprocessable('FILE_INVALID', $e->getMessage(), $e->errors());
+            }
+        }
+
+        foreach ($data['pdfs'] ?? [] as $file) {
+            try {
+                $this->fileValidation->validateFile($file, FileType::PDF);
+            } catch (ValidationException $e) {
+                return $this->unprocessable('FILE_INVALID', $e->getMessage(), $e->errors());
+            }
         }
 
         $hasCover = $project->files()->where('type', FileType::IMAGE)->where('is_cover', true)->exists();
@@ -104,7 +118,7 @@ class FileController
     /** حذف ملف — امتداد مقترح (خارج الـ 49) ضروري لتجربة رفع كاملة */
     public function destroy(Request $request, Project $project, ProjectFile $file): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
+        if ($request->user()->cannot('files', $project)) {
             return $this->forbidden();
         }
 

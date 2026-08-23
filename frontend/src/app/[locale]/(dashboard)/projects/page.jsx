@@ -12,6 +12,7 @@ import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { SkeletonCard } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { Button } from "@/shared/components/Button";
+import PaginationBar from "@/shared/components/PaginationBar";
 import { Link } from "@/config/i18n/link";
 import { api } from "@/shared/lib/api";
 import { mapApiProject, sectorLabels, sectorOptions } from "@/features/projects/data/projects";
@@ -49,7 +50,8 @@ export default function ProjectsGalleryPage() {
     const timer = window.setTimeout(async () => {
       try {
         const res = await api.get(`/search/suggestions?q=${encodeURIComponent(q)}`);
-        if (active) setSuggestions(res?.data?.suggestions ?? []);
+        // api.js unwraps { success, message, data } → data is { suggestions: [...] }.
+        if (active) setSuggestions(res?.suggestions ?? []);
       } catch {
         if (active) setSuggestions([]);
       }
@@ -282,40 +284,14 @@ export default function ProjectsGalleryPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <nav aria-label={t("gallery.pagination")} className="flex items-center justify-center gap-2 pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("gallery.prev")}
-          </Button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setPage(n)}
-              aria-current={n === page ? "page" : undefined}
-              className={cn(
-                "min-h-12 w-12 rounded-lg font-heading text-sm font-semibold transition-colors",
-                n === page
-                  ? "bg-primary-600 text-white shadow-md"
-                  : "text-text-secondary hover:bg-surface-1"
-              )}
-            >
-              {n}
-            </button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("gallery.next")}
-          </Button>
-        </nav>
+        <PaginationBar
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          ariaLabel={t("gallery.pagination")}
+          prevLabel={t("gallery.prev")}
+          nextLabel={t("gallery.next")}
+        />
       )}
 
       <p className="text-center text-xs text-text-secondary">

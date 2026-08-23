@@ -50,6 +50,11 @@
     "files.pdf_limit": "الحد الأقصى لملفات PDF :max لكل مشروع",
     "files.uploaded": "تم رفع الملفات بنجاح",
     "files.deleted": "تم حذف الملف",
+    "files.invalid": "الملف تالف أو غير قابل للقراءة",
+    "files.too_large": "حجم الملف يتجاوز الحد الأقصى (:max_kb كيلوبايت)",
+    "files.invalid_extension": "امتداد الملف غير مسموح",
+    "files.executable_blocked": "لا يُسمح برفع الملفات التنفيذية",
+    "files.mime_mismatch": "نوع الملف الحقيقي لا يطابق الامتداد المعلن",
 
     "evaluation.queued": "بدأ التقييم — سنخطرك فور اكتماله",
     "evaluation.cache_active": "التقييم متاح مرة كل :minutes دقيقة — جرّب لاحقاً",
@@ -69,6 +74,8 @@
     "notifications.interest_accepted_title": "تم قبول اهتمامك بمشروع :project",
     "notifications.interest_rejected_title": "تم رفض اهتمامك بمشروع :project",
     "notifications.interest_cancelled_title": "أُلغي اهتمام مستثمر بمشروع :project",
+    "notifications.welcome_title": "أهلاً بك في إحياء",
+    "notifications.welcome_body": "سجّلت حسابك بنجاح. ابدأ برفع مشروعك أو اكتشاف الفرص الاستثمارية.",
 
     "saved.saved": "تم حفظ المشروع",
     "saved.removed": "تمت إزالة المشروع من المحفوظات",
@@ -78,6 +85,7 @@
     "trash.expired": "انتهت مدة الاسترجاع (30 يوماً) — يمكن الحذف النهائي فقط",
     "trash.restored": "تمت استعادة المشروع",
     "trash.force_deleted": "تم حذف المشروع نهائياً",
+    "trash.confirm_required": "يجب تأكيد الحذف النهائي",
 
     "ai_agent.analysis_queued": "بدأ التحليل — النتيجة جاهزة عبر معرف النتيجة",
     "ai_agent.artifact_not_found": "التحليل غير موجود أو انتهت صلاحيته (24 ساعة)"

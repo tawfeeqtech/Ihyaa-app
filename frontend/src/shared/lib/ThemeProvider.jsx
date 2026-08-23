@@ -5,7 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useSyncExternalStore,
+  useState,
 } from "react";
 
 const STORAGE_KEY = "ihyaa-theme";
@@ -21,34 +21,48 @@ function readTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** Keep subscribers in sync with storage changes, OS preference and manual toggles. */
-function subscribe(callback) {
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  const onSystemChange = () => {
-    // Only react to system changes when the user has no explicit choice.
-    if (!localStorage.getItem(STORAGE_KEY)) callback();
-  };
-  window.addEventListener("storage", callback);
-  window.addEventListener(CHANGE_EVENT, callback);
-  mq.addEventListener("change", onSystemChange);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(CHANGE_EVENT, callback);
-    mq.removeEventListener("change", onSystemChange);
-  };
-}
-
 /**
  * Light-first (default) with optional dark mode, driven by the
  * `[data-theme]` attribute on <html>. The head script in the layout
  * pre-applies the theme to avoid a flash before hydration.
+ *
+ * We use useState + useEffect instead of useSyncExternalStore because
+ * the server snapshot ("light") and the client snapshot (from localStorage)
+ * can differ — that mismatch triggers a hydration error on every page.
+ * The head script in the root layout already prevents the FOUC, so
+ * switching to useEffect is safe.
  */
 export function ThemeProvider({ children }) {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => "light");
+  const [theme, setTheme] = useState("light");
 
-  /* Sync the DOM attribute — a side effect, not state. */
+  /* On mount, read the real theme from localStorage. The inline <head>
+     script already applied the correct data-theme attribute before React
+     hydrated, so there is no flash. */
+  useEffect(() => {
+    setTheme(readTheme());
+  }, []);
+
+  /* Keep the DOM attribute in sync and listen for external changes. */
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onSystemChange = () => {
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        setTheme(mq.matches ? "dark" : "light");
+      }
+    };
+    const onStorage = () => setTheme(readTheme());
+    const onCustom = () => setTheme(readTheme());
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(CHANGE_EVENT, onCustom);
+    mq.addEventListener("change", onSystemChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(CHANGE_EVENT, onCustom);
+      mq.removeEventListener("change", onSystemChange);
+    };
   }, [theme]);
 
   const toggle = useCallback(() => {

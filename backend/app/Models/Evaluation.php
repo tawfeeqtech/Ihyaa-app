@@ -92,4 +92,42 @@ class Evaluation extends Model
             ->orderByDesc('id')
             ->limit(1);
     }
+
+    // ——————————————————————— العرض (مصفوفة التقرير — SRS-F05) ———————————————————————
+
+    /**
+     * تقرير التقييم للعرض وفق مستوى الإفصاح (data-model.md §2.2).
+     * يقرأ الأبعاد/التحليل من `result` (مخطط §5.4.6.3) بدل أعمدة
+     * scores/gap_analysis/recommendations القديمة من نموذج AiEvaluation.
+     */
+    public function toReportArray(string $access = 'full'): array
+    {
+        $result = is_array($this->result) ? $this->result : [];
+
+        $report = [
+            'id' => $this->id,
+            'version' => $this->version,
+            'status' => $this->status->value,
+            'overall_score' => $this->overall_score,
+            'confidence_score' => $this->confidence_score,
+            'model_used' => $this->model_used?->value,
+            'processing_time_ms' => $this->processing_time_ms,
+            'evaluated_at' => $this->created_at?->toISOString(),
+        ];
+
+        // level 2+ : الأبعاد الخمسة + بيانات الرسم الراداري
+        if (in_array($access, ['dimensions', 'full'], true)) {
+            $report['scores'] = $result['dimensions'] ?? [];
+        }
+
+        // level 3 (مالك أو مستثمر بعد اتفاق): كل شيء
+        if ($access === 'full') {
+            $report['gap_analysis'] = $result['gap_analysis'] ?? [];
+            $report['recommendations'] = $result['recommendations'] ?? [];
+            $report['required_skills'] = $result['required_skills'] ?? [];
+            $report['warnings'] = $result['warnings'] ?? [];
+        }
+
+        return $report;
+    }
 }

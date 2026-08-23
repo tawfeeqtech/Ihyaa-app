@@ -36,7 +36,7 @@ export default function LoginPage() {
       setError(t("errors.invalidEmail"));
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setError(t("errors.shortPassword"));
       return;
     }
@@ -59,6 +59,12 @@ export default function LoginPage() {
           : "/dashboard/owner";
       router.push(next && !next.startsWith("/login") ? next : dashboardPath);
     } catch (err) {
+      // الدستور V: حساب غير مفعّل البريد → وجّه إلى صفحة إدخال رمز التفعيل.
+      if (err.body?.code === "EMAIL_NOT_VERIFIED") {
+        toast.info(t("errors.emailNotVerified"));
+        router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+        return;
+      }
       const msg =
         err.body?.message ??
         (err.status === 401
@@ -123,7 +129,7 @@ export default function LoginPage() {
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"

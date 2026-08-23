@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Enums\EvaluationStatus;
 use App\Enums\ProjectState;
 use App\Enums\ProjectStatus;
-use App\Enums\VisibilityLevel;
-use App\Models\AiEvaluation;
+use App\Http\Requests\StoreProjectRequest;
+use App\Http\Requests\UpdateProjectRequest;
+use App\Http\Resources\ProjectResource;
+use App\Models\Evaluation;
 use App\Models\Project;
+use App\Services\Project\ProjectService;
 use App\Support\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,11 +18,18 @@ use Illuminate\Validation\Rule;
 
 /**
  * المشاريع — SRS-API-13..17, 19, 20, 21 · L2/L3.
- * L2: index (معرض عام) · show (إفصاح 1/2/3) · L3: CRUD لصاحب الفكرة (تحقق ملكية).
+ * L2: index (معرض عام) · show (إفصاح 1/2/3) · L3: CRUD لصاحب الفكرة.
+ *
+ * T160/T162/T163: الإنشاء/التحديث في ProjectService · التحقق في Form Requests ·
+ * التفويض عبر ProjectPolicy (بدل isOwner() المبعثرة).
  */
 class ProjectController
 {
     use ApiResponse;
+
+    public function __construct(private readonly ProjectService $projects)
+    {
+    }
 
     // ——————————————————————— L2: المعرض العام (RL-PUB-01 · 30/دقيقة) ———————————————————————
 
@@ -28,7 +38,7 @@ class ProjectController
         $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:120'],
-            'state' => ['nullable', Rule::enum(ProjectState::class)],
+            'status' => ['nullable', Rule::enum(ProjectState::class)],          // T166: status بدل state
             'min_score' => ['nullable', 'numeric', 'between:0,100'],
             'max_score' => ['nullable', 'numeric', 'between:0,100'],
             'sort' => ['nullable', Rule::in(['ai_score', 'created_at', 'view_count'])],
@@ -46,7 +56,7 @@ class ProjectController
             ->with(['category', 'files' => fn ($q) => $q->where('type', 'image')])
             ->published()
             ->ofCategory($request->input('category'))
-            ->ofState($request->input('state'))
+            ->ofState($request->input('status'))
             ->scoreBetween($minScore, $maxScore)
             ->search($request->input('q'))
             ->sortBy($request->input('sort'), $request->input('direction'))
@@ -72,66 +82,33 @@ class ProjectController
             $project->increment('view_count');
         }
 
-        $reportAccess = $project->reportAccessFor($viewer);
+        $project->loadMissing(['category', 'files', 'owner']);
 
-        $latest = $project->evaluations()
-            ->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL])
-            ->first();
-
-        $data = $project->toCardArray($viewer);
-        $data['description'] = $project->description;
-        $data['publication_status'] = $project->publication_status->value;
-        $data['github_url'] = $project->github_url;
-        $data['video'] = $project->video_url ? [
-            'url' => $project->video_url,
-            'provider' => $project->video_provider?->value,
-        ] : null;
-        $data['files'] = $project->files->map->toArrayApi();
-        $data['owner'] = $project->isOwner($viewer) || $reportAccess === 'full' ? [
-            'id' => $project->owner->id,
-            'name' => $project->owner->name,
-            'avatar_url' => $project->owner->avatar_path ? asset('storage/'.$project->owner->avatar_path) : null,
-            'email' => $reportAccess === 'full' ? $project->owner->email : null, // كشف البريد بعد الاتفاق فقط (UC-07)
-        ] : null;
-        $data['report_access'] = $reportAccess;
-        $data['evaluation'] = $latest ? $latest->toReportArray($reportAccess) : null;
-
-        return $this->success($data);
+        // T161: التفاصيل الكاملة مع الإفصاح حسب الدور — ProjectResource::detail()
+        return $this->success(ProjectResource::make($project)->detail($viewer));
     }
 
     // ——————————————————————— L3: الإنشاء (RL-IO-04 · 10/دقيقة) ———————————————————————
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreProjectRequest $request): JsonResponse
     {
-        $data = $this->validateProject($request);
+        $project = $this->projects->create($request->user(), $request->validated());
+        $project->refresh()->load(['category', 'files', 'owner']);
 
-        $project = $request->user()->projects()->create($data);
-
-        return $this->created($this->projectDetail($project), __('projects.created'));
+        return $this->created(ProjectResource::make($project)->detail($request->user()), __('projects.created'));
     }
 
     // ——————————————————————— L3: التحديث (RL-IO-05 · 10/دقيقة) ———————————————————————
 
-    public function update(Request $request, Project $project): JsonResponse
+    public function update(UpdateProjectRequest $request, Project $project): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
-            return $this->forbidden();
-        }
+        $result = $this->projects->update($project, $request->validated());
+        $result['project']->refresh()->load(['category', 'files', 'owner']);
 
-        $original = $project->only(['description', 'tags', 'github_url', 'status']);
-
-        $data = $this->validateProject($request, forUpdate: true);
-
-        $project->update($data);
-
-        // الحقول الجوهرية تتغير → اقتراح إعادة تقييم يدوية (SRS-F04-02) — لا تلقائية
-        $significantChanged = collect($original)->some(
-            fn ($value, $key) => json_encode($value) !== json_encode($project->{$key})
-        );
-
+        // T166: significant_changes بدل needs_reevaluation (contract §PUT)
         return $this->success([
-            'project' => $this->projectDetail($project->fresh()),
-            'needs_reevaluation' => $significantChanged,
+            'project' => ProjectResource::make($result['project'])->detail($request->user()),
+            'significant_changes' => $result['significant_changes'],
         ], __('projects.updated'));
     }
 
@@ -139,7 +116,7 @@ class ProjectController
 
     public function destroy(Request $request, Project $project): JsonResponse
     {
-        if (! $project->isOwner($request->user())) {
+        if ($request->user()->cannot('destroy', $project)) {
             return $this->forbidden();
         }
 
@@ -160,7 +137,7 @@ class ProjectController
     {
         $user = $request->user();
 
-        // Owner دائماً / Investor بعد اتفاق مقبول — خلاف ذلك 403 (EvaluationPolicy)
+        // Owner دائماً / Investor بعد اتفاق مقبول — خلاف ذلك 403
         if (! $project->isOwner($user) && ! ($user && $project->hasAcceptedInterestFrom($user))) {
             return $this->forbidden();
         }
@@ -171,56 +148,8 @@ class ProjectController
             ->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL])
             ->limit(5)
             ->get()
-            ->map(fn (AiEvaluation $e) => $e->toReportArray($access));
+            ->map(fn (Evaluation $e) => $e->toReportArray($access));
 
         return $this->success($evaluations);
-    }
-
-    // ——————————————————————— أدوات ———————————————————————
-
-    protected function validateProject(Request $request, bool $forUpdate = false): array
-    {
-        return $request->validate([
-            'title' => ['required', 'string', 'min:5', 'max:120'],
-            'description' => ['required', 'string', 'min:50', 'max:2000'],       // 50–2000 حرف
-            'category_id' => ['required', 'exists:categories,id'],
-            'status' => ['required', Rule::enum(ProjectState::class)],
-            'publication_status' => ['sometimes', Rule::enum(ProjectStatus::class)],
-            'tags' => ['nullable', 'array', 'max:'.Project::MAX_TAGS],
-            'tags.*' => ['string', 'max:50'],
-            'github_url' => ['nullable', 'url', 'max:255'],
-            'video_url' => ['nullable', 'url', 'max:255',
-                'regex:/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|vimeo\.com)\/.+$/i', // SRS-F02-03
-            ],
-            'video_provider' => ['required_with:video_url', Rule::in(['youtube', 'vimeo'])],
-            'budget_min' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            'budget_max' => ['nullable', 'numeric', 'gte:budget_min', 'max:999999999999'],
-            'visibility_level' => ['sometimes', Rule::enum(VisibilityLevel::class)],
-        ]);
-    }
-
-    /** تفاصيل كاملة (للمالك — مستوى إفصاح كامل) */
-    protected function projectDetail(Project $project): array
-    {
-        $project->refresh(); // الحقول الافتراضية من DB (publication_status ...)
-        $project->load(['category', 'files', 'owner']);
-
-        $latest = $project->evaluations()
-            ->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL])
-            ->first();
-
-        $data = $project->toCardArray();
-        $data['description'] = $project->description;
-        $data['publication_status'] = $project->publication_status->value;
-        $data['github_url'] = $project->github_url;
-        $data['video'] = $project->video_url ? [
-            'url' => $project->video_url,
-            'provider' => $project->video_provider?->value,
-        ] : null;
-        $data['files'] = $project->files->map->toArrayApi();
-        $data['report_access'] = 'full';
-        $data['evaluation'] = $latest ? $latest->toReportArray('full') : null;
-
-        return $data;
     }
 }

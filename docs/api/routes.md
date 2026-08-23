@@ -79,6 +79,14 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:auth.login');                             // RL-AUTH-02 · 5/دقيقة · email
 
+Route::post('/email/resend', [AuthController::class, 'resendOtp'])
+    ->middleware('throttle:api.otp');                                // إعادة إرسال رمز التفعيل · عام · 3/دقيقة
+
+Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
+    ->middleware('throttle:api.otp');                                // SRS-API-04 · عام · 3/دقيقة (T139)
+// Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
+// عام بلا توكن لأن register لا يُصدر توكن قبل التفعيل (الدستور V · T124)
+
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
     ->middleware('throttle:auth.forgot-password');                   // RL-AUTH-05 · 2/دقيقة · email
 
@@ -130,10 +138,6 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::post('/logout', [AuthController::class, 'logout'])
         ->middleware('throttle:auth.logout');                        // RL-AUTH-03 · 10/دقيقة · user_id
-
-    Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
-        ->middleware('throttle:auth.email-verify');                  // RL-AUTH-04 · 3/دقيقة · user_id
-    // Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
 
     /*
     | L3/L4 — الملف الشخصي (Shared — read حسب الدور)

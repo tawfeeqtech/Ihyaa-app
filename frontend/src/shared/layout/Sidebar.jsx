@@ -83,7 +83,7 @@ export function Sidebar({ role, userName }) {
           </div>
         </div>
         <Link
-          href={role === "idea_owner" ? "/dashboard/owner" : "/dashboard/investor"}
+          href="/profile"
           className="flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-1 hover:text-text-primary"
         >
           <UserCircle size={20} />

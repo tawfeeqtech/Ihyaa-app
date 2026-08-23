@@ -31,6 +31,8 @@ export default function AuthCallbackPage() {
     const token = params.get("token");
     const role = params.get("role");
     const name = params.get("name");
+    const email = params.get("email") ?? "";
+    const emailVerified = params.get("email_verified") === "1";
     const roleRequired = params.get("role_required") === "1";
     const roleSetupState = params.get("role_setup_state");
     const provider = params.get("provider");
@@ -50,12 +52,14 @@ export default function AuthCallbackPage() {
       document.cookie = `ihyaa_oauth_provider=${provider};path=/;max-age=600;samesite=lax`;
       document.cookie = `ihyaa_oauth_state=${roleSetupState};path=/;max-age=600;samesite=lax`;
       document.cookie = `ihyaa_oauth_name=${encodeURIComponent(name)};path=/;max-age=600;samesite=lax`;
+      document.cookie = `ihyaa_oauth_email=${encodeURIComponent(email)};path=/;max-age=600;samesite=lax`;
+      document.cookie = `ihyaa_oauth_verified=${emailVerified ? "1" : "0"};path=/;max-age=600;samesite=lax`;
       window.location.replace(`/${locale}/auth/select-role`);
       return;
     }
 
     // Existing user with a role — store auth cookies and redirect to dashboard.
-    setAuthCookies(token, { role, name });
+    setAuthCookies(token, { role, name, email, email_verified: emailVerified });
     const dashboardPath =
       role === "investor"
         ? `/${locale}/dashboard/investor`

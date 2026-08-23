@@ -9,6 +9,7 @@ use App\Enums\ProjectState;
 use App\Enums\ProjectStatus;
 use App\Enums\VideoProvider;
 use App\Enums\VisibilityLevel;
+use App\Http\Resources\ProjectResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,25 +30,47 @@ class Project extends Model
 
     public const DEFAULT_PAGE_SIZE = 12;            // SRS-F07-05
 
-    public const MAX_PAGE_SIZE = 50;
+    public const MAX_PAGE_SIZE = 12;                // SRS-F07-05 · US-040 س4: clamp 1–12 (T156)
 
+    /**
+     * الحقول القابلة للتعبئة — توثيق T168 (حقول خارج النطاق الأساسي لـ Sprint 1):
+     *
+     * هذه الحقول توسعة مقبولة لميزات Sprint 2-4 (لا تُحذف) — مصدر كل حقل:
+     *  - publication_status  : حالة النشر/العرض draft|published|archived — منفصلة عن status التجارية.
+     *                          المصدر: create_projects (2026_08_02_000005) + docs/api/enums.md §1.2.
+     *                          الاستهلاك الكامل (نشر/أرشفة من لوحة صاحب الفكرة) في Sprint 4.
+     *  - team                : أعضاء الفريق JSON [{name, role}] — اختياري (SRS-F02-01).
+     *                          المصدر: add_team_to_projects (2026_08_18_000001).
+     *                          يُستهلك من محرك تقييم AI (بُعد الفريق) ولوحة صاحب الفكرة — Sprint 2+.
+     *  - visibility_level    : مستوى الإفصاح عن تقرير AI (1 زائر | 2 مسجّل | 3 بعد الاتفاق).
+     *                          المصدر: create_projects + docs/api/enums.md §1.4 + T127 (default 2).
+     *                          يُستهلك في reportAccessFor/effectiveVisibilityFor — Sprint 2-4.
+     *  - last_evaluation_at  : كاش الـ 24 ساعة لإعادة التقييم (SRS-AI-C01) — آخر تقييم مكتمل.
+     *                          المصدر: create_projects + add_ai_fields (2026_08_17_000007 فهرس).
+     *                          يُحدّث من محرك التقييم — Sprint 2.
+     *
+     * ملاحظة جدول role_user (pivot users↦roles): توسعة مقبولة من Sprint 1 — عمود `role` على
+     * جدول users هو المصدر الأساسي لدور المستخدم، والـ pivot مرجعي يُزامن عبر User::setRole
+     * (SRS-F01-07 — أول دخول OAuth).
+     */
     protected $fillable = [
         'user_id',
         'category_id',
         'title',
         'description',
         'status',
-        'publication_status',
+        'publication_status',      // حالة النشر draft|published|archived — enums.md §1.2
         'tags',
+        'team',                    // أعضاء الفريق JSON [{name, role}] — SRS-F02-01
         'github_url',
         'video_url',
         'video_provider',
         'budget_min',
         'budget_max',
-        'visibility_level',
+        'visibility_level',        // مستوى الإفصاح عن تقرير AI (1|2|3) — enums.md §1.4
         'ai_score',
         'view_count',
-        'last_evaluation_at',
+        'last_evaluation_at',      // كاش إعادة التقييم (SRS-AI-C01)
     ];
 
     /**
@@ -61,6 +84,7 @@ class Project extends Model
             'visibility_level' => VisibilityLevel::class,
             'video_provider' => VideoProvider::class,
             'tags' => 'array',
+            'team' => 'array',
             'budget_min' => 'float',
             'budget_max' => 'float',
             'ai_score' => 'float',
@@ -88,7 +112,7 @@ class Project extends Model
 
     public function evaluations(): HasMany
     {
-        return $this->hasMany(AiEvaluation::class)->orderByDesc('version');
+        return $this->hasMany(Evaluation::class)->orderByDesc('version');
     }
 
     // ——————————————————————— فهرسة البحث (Scout/Meilisearch — plan §5.1 · data-model §8.1) ———————————————————————
@@ -230,8 +254,13 @@ class Project extends Model
     }
 
     /**
-     * مستوى الوصول الفعلي للتقرير — docs/api/enums.md §1.4:
+     * مستوى الوصول الفعلي للتقرير — docs/api/enums.md §1.4 · US-038 AC2:
      * none | overall | dimensions | full
+     *
+     * مصفوفة الإفصاح (T127):
+     *  - زائر غير مسجّل: overall فقط إن visibility_level = 1، وإلا none
+     *  - مسجّل (غير مالك): dimensions + radar دائماً — 1 → overall، 2/3 → dimensions
+     *  - مالك أو مستثمر بعد اتفاق مقبول: full
      */
     public function reportAccessFor(?User $user): string
     {
@@ -242,8 +271,7 @@ class Project extends Model
         if ($user) {
             return match ($this->visibility_level) {
                 VisibilityLevel::VISITOR => 'overall',
-                VisibilityLevel::REGISTERED => 'dimensions',
-                VisibilityLevel::AFTER_AGREEMENT => 'none',
+                VisibilityLevel::REGISTERED, VisibilityLevel::AFTER_AGREEMENT => 'dimensions',
             };
         }
 
@@ -267,7 +295,7 @@ class Project extends Model
     }
 
     /** آخر تقييم مكتمل (أو جزئي) — للعرض والفرز */
-    public function latestEvaluation(): ?AiEvaluation
+    public function latestEvaluation(): ?Evaluation
     {
         return $this->evaluations()
             ->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL])
@@ -276,34 +304,19 @@ class Project extends Model
 
     public function coverUrl(): ?string
     {
-        $cover = $this->files()->where('type', FileType::IMAGE)->where('is_cover', true)->first()
-            ?? $this->files()->where('type', FileType::IMAGE)->first();
+        // T157: أعد استخدام علاقة files المحمّلة مسبقاً (مع fallback لاستعلام جديد إن لم تُحمّل)
+        // — يمنع N+1 في قوائم المعرض (index يحمّل files مسبقاً).
+        $files = $this->relationLoaded('files') ? $this->files : $this->files()->get();
+
+        $cover = $files->where('type', FileType::IMAGE)->where('is_cover', true)->first()
+            ?? $files->where('type', FileType::IMAGE)->first();
 
         return $cover ? asset('storage/'.$cover->file_path) : null;
     }
 
-    /** بطاقة المعرض (SRS-F07) */
+    /** بطاقة المعرض (SRS-F07) — T161: التفويض إلى ProjectResource::card() */
     public function toCardArray(?User $viewer = null): array
     {
-        return [
-            'id' => $this->id,
-            'title' => $this->title,
-            'description' => $this->description,
-            'category' => $this->category ? [
-                'slug' => $this->category->slug,
-                'name' => $this->category->name(),
-            ] : null,
-            'state' => $this->status->value,
-            'state_label' => $this->status->label(),
-            'ai_score' => $this->ai_score,
-            'budget' => $this->budget_min !== null
-                ? ['min' => $this->budget_min, 'max' => $this->budget_max]
-                : null,
-            'tags' => $this->tags ?? [],
-            'cover_url' => $this->coverUrl(),
-            'view_count' => $this->view_count,
-            'visibility_level' => $this->effectiveVisibilityFor($viewer),
-            'created_at' => $this->created_at?->toISOString(),
-        ];
+        return ProjectResource::make($this)->card($viewer);
     }
 }

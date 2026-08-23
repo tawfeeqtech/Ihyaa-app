@@ -24,6 +24,8 @@ export default function SelectRolePage() {
     const provider = document.cookie.match(/(?:^|; )ihyaa_oauth_provider=([^;]*)/)?.[1];
     const state = document.cookie.match(/(?:^|; )ihyaa_oauth_state=([^;]*)/)?.[1];
     const name = document.cookie.match(/(?:^|; )ihyaa_oauth_name=([^;]*)/)?.[1];
+    const email = document.cookie.match(/(?:^|; )ihyaa_oauth_email=([^;]*)/)?.[1];
+    const verified = document.cookie.match(/(?:^|; )ihyaa_oauth_verified=([^;]*)/)?.[1];
 
     const locale = window.location.pathname.split("/")[1] || "ar";
 
@@ -34,7 +36,14 @@ export default function SelectRolePage() {
 
     // Store the token as the real auth cookie so the API client can use it
     document.cookie = `ihyaa_token=${token};path=/;max-age=600;samesite=lax`;
-    setOauthData({ token, provider, state: state ?? "", name: name ? decodeURIComponent(name) : "User" });
+    setOauthData({
+      token,
+      provider,
+      state: state ?? "",
+      name: name ? decodeURIComponent(name) : "User",
+      email: email ? decodeURIComponent(email) : "",
+      emailVerified: verified === "1",
+    });
   }, []);
 
   async function handleSubmit(e) {
@@ -55,8 +64,13 @@ export default function SelectRolePage() {
         document.cookie = `${name}=;path=/;max-age=0`;
       }
 
-      // Set proper auth cookies
-      setAuthCookies(oauthData.token, { role, name: oauthData.name });
+      // Set proper auth cookies (بريد OAuth موثوق من المزود → مفعّل افتراضياً)
+      setAuthCookies(oauthData.token, {
+        role,
+        name: oauthData.name,
+        email: oauthData.email,
+        email_verified: oauthData.emailVerified,
+      });
 
       const locale = window.location.pathname.split("/")[1] || "ar";
       const dashboardPath =

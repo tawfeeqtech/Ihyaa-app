@@ -51,7 +51,7 @@ export default function RegisterPage() {
 
     if (name.trim().length < 2) return setError(t("errors.shortName"));
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError(t("errors.invalidEmail"));
-    if (password.length < 6) return setError(t("errors.shortPassword"));
+    if (password.length < 8) return setError(t("errors.shortPassword"));
     if (!terms) return setError(t("errors.termsRequired"));
 
     setLoading(true);
@@ -163,7 +163,7 @@ export default function RegisterPage() {
             type="password"
             autoComplete="new-password"
             required
-            minLength={6}
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"

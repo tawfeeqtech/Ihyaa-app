@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\EvaluationStatus;
 use App\Enums\InterestStatus;
-use App\Models\AiEvaluation;
+use App\Models\Evaluation;
 use App\Models\Category;
 use App\Models\Interest;
 use App\Models\Notification;
@@ -35,6 +35,18 @@ class DashboardController
             'archived' => $user->projects()->where('publication_status', 'archived')->count(),
             'trashed' => $user->projects()->onlyTrashed()->count(),
         ];
+
+        // قائمة مشاريع المالك (كل الحالات: draft/published/archived) — لجدول "مشاريعي"
+        // وتمكين دورة الحفظ كمسودة ← عرض ← استكمال/تعديل. مضافة إلى toCardArray فقط
+        // دون تعديل الدالة نفسها حتى لا يتأثر المعرض العام.
+        $projects = $user->projects()
+            ->with(['category', 'files' => fn ($q) => $q->where('type', 'image')])
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(fn (Project $p) => array_merge($p->toCardArray(), [
+                'publication_status' => $p->publication_status?->value,
+                'updated_at' => $p->updated_at?->toISOString(),
+            ]));
 
         $interests = $user->interestsReceived();
 
@@ -81,6 +93,7 @@ class DashboardController
         return $this->success([
             'project_stats' => $projectStats,
             'interest_stats' => $interestStats,
+            'projects' => $projects,
             'recent_evaluations' => $evaluations,
             'recent_events' => $recentEvents,
             'unread_notifications' => $user->notifications()->unread()->count(),
@@ -136,7 +149,7 @@ class DashboardController
     {
         $users = User::query();
         $projects = Project::query();
-        $evaluations = AiEvaluation::query();
+        $evaluations = Evaluation::query();
 
         return [
             'users' => [

@@ -206,13 +206,23 @@ it('exposes only overall scores to non-owners at VISITOR visibility (US-029)', f
         ->assertJsonMissingPath('data.meta.failed_count');
 });
 
-it('forbids non-owners at AFTER_AGREEMENT visibility (US-029)', function () {
+it('gives non-owners dimensions in the history log at AFTER_AGREEMENT visibility (T127 / US-038)', function () {
+    Evaluation::create([
+        'project_id' => $this->project->id,
+        'version' => 1,
+        'status' => EvaluationStatus::COMPLETED,
+        'overall_score' => 70,
+        'result' => ['dimensions' => ['technical_quality' => ['score' => 70]]],
+    ]);
+
     $investor = User::factory()->investor()->create();
     Sanctum::actingAs($investor);
 
     $this->getJson("/api/projects/{$this->project->id}/evaluations")
-        ->assertStatus(403)
-        ->assertJsonPath('code', 'FORBIDDEN');
+        ->assertStatus(200)
+        ->assertJsonStructure(['data' => ['evaluations', 'meta']])
+        ->assertJsonPath('data.evaluations.0.overall_score', 70)
+        ->assertJsonPath('data.evaluations.0.dimensions.technical_quality', 70);
 });
 
 it('includes comparison data when requested by the owner (?include=comparison — US-023)', function () {

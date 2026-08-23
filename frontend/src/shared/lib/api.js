@@ -16,12 +16,40 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 export const AUTH_COOKIE = "ihyaa_token";
 export const ROLE_COOKIE = "ihyaa_role";
 export const NAME_COOKIE = "ihyaa_name";
+export const EMAIL_COOKIE = "ihyaa_email";
+export const VERIFIED_COOKIE = "ihyaa_verified";
 
 /** Read a cookie by name — works in the browser (server-side use `next/headers`). */
 function getCookie(name) {
   if (typeof document === "undefined") return undefined;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : undefined;
+}
+
+/**
+ * الدستور V: حساب غير مفعّل البريد → توجيه تلقائي لصفحة OTP بدل عرض خطأ 403 خام.
+ * يُستدعى عند أي استجابة 403 برمز EMAIL_NOT_VERIFIED (EnsureEmailVerified middleware).
+ * البريد يُقرأ من كوكي `ihyaa_email` إن وُجد؛ وإلا تُفتح الصفحة بدون بريد.
+ */
+function redirectToVerifyOtp() {
+  if (typeof window === "undefined") return;
+  const email = getCookie(EMAIL_COOKIE) ?? "";
+  const locale = window.location.pathname.split("/")[1] || "ar";
+  const url = `/${locale}/verify-otp${email ? `?email=${encodeURIComponent(email)}` : ""}`;
+  window.location.replace(url);
+}
+
+/** تنفيذ مشترك لمعالجة الاستجابات غير الناجحة (يضيف التوجيه لصفحة OTP عند الحاجة). */
+function makeError(res, body) {
+  // 403 EMAIL_NOT_VERIFIED = المستخدم مسجّل الدخول لكن بريده غير مفعّل.
+  if (res.status === 403 && body?.code === "EMAIL_NOT_VERIFIED") {
+    redirectToVerifyOtp();
+  }
+  const error = new Error(body?.message ?? `Request failed (${res.status})`);
+  error.status = res.status;
+  error.body = body;
+  error.headers = res.headers;
+  return error;
 }
 
 /** Shared fetch with auth headers and unified error handling. */
@@ -48,16 +76,55 @@ async function request(path, options = {}) {
   const body = res.ok ? await res.json() : await res.json().catch(() => null);
 
   if (!res.ok) {
-    const error = new Error(body?.message ?? `Request failed (${res.status})`);
-    error.status = res.status;
-    error.body = body;
-    throw error;
+    throw makeError(res, body);
   }
 
   // Laravel wraps successful payloads in { success, message, data }. Unwrap
   // `data` so callers receive the actual resource — e.g. api.post("/login")
   // resolves to { token, token_expires_at, user }.
-  return body && typeof body === "object" && "data" in body ? body.data : body;
+  //
+  // Paginated responses additionally carry a top-level `meta` object
+  // ({ current_page, per_page, total, last_page, ... }). Preserve it so
+  // callers can read both `res.data` (the items) and `res.meta` (pagination).
+  // Endpoints without `meta` keep unwrapping to just `data` for backward
+  // compatibility.
+  if (body && typeof body === "object" && "data" in body) {
+    return "meta" in body ? { data: body.data, meta: body.meta } : body.data;
+  }
+  return body;
+}
+
+/**
+ * Upload multipart/form-data (files). Unlike `request`, this does NOT set a
+ * JSON Content-Type — the browser sets it with the multipart boundary.
+ */
+async function uploadRequest(path, formData, options = {}) {
+  const url = `${BASE_URL}${path}`;
+  const token = getCookie(AUTH_COOKIE);
+
+  const res = await fetch(url, {
+    ...options,
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+    body: formData,
+  });
+
+  if (res.status === 204) return null;
+
+  const body = res.ok ? await res.json() : await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw makeError(res, body);
+  }
+
+  if (body && typeof body === "object" && "data" in body) {
+    return "meta" in body ? { data: body.data, meta: body.meta } : body.data;
+  }
+  return body;
 }
 
 export const api = {
@@ -69,6 +136,7 @@ export const api = {
   patch: (path, data, opts) =>
     request(path, { ...opts, method: "PATCH", body: JSON.stringify(data) }),
   delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
+  upload: (path, formData, opts) => uploadRequest(path, formData, opts),
 };
 
 /**
@@ -78,15 +146,23 @@ export const api = {
  */
 export function setAuthCookies(token, user, remember = false) {
   const maxAge = remember ? "max-age=2592000" : "max-age=86400";
+  const email = user?.email ?? "";
+  const emailVerified = user?.email_verified ?? true; // OAuth: بريد موثوق من المزود افتراضياً
+
   document.cookie = `${AUTH_COOKIE}=${token};path=/;${maxAge};samesite=lax`;
   document.cookie = `${ROLE_COOKIE}=${user.role};path=/;${maxAge};samesite=lax`;
   document.cookie = `${NAME_COOKIE}=${encodeURIComponent(user.name)};path=/;${maxAge};samesite=lax`;
-  localStorage.setItem("ihyaa_user", JSON.stringify({ name: user.name, role: user.role }));
+  document.cookie = `${EMAIL_COOKIE}=${encodeURIComponent(email)};path=/;${maxAge};samesite=lax`;
+  document.cookie = `${VERIFIED_COOKIE}=${emailVerified ? "1" : "0"};path=/;${maxAge};samesite=lax`;
+  localStorage.setItem(
+    "ihyaa_user",
+    JSON.stringify({ name: user.name, role: user.role, email, emailVerified })
+  );
 }
 
 /** Clear all auth cookies (logout). */
 export function clearAuthCookies() {
-  for (const name of [AUTH_COOKIE, ROLE_COOKIE, NAME_COOKIE]) {
+  for (const name of [AUTH_COOKIE, ROLE_COOKIE, NAME_COOKIE, EMAIL_COOKIE, VERIFIED_COOKIE]) {
     document.cookie = `${name}=;path=/;max-age=0`;
   }
   localStorage.removeItem("ihyaa_user");

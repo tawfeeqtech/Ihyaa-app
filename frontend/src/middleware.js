@@ -7,12 +7,28 @@ const intlMiddleware = createMiddleware(routing);
 /** Auth cookie name — set by the Laravel backend after successful login. */
 export const AUTH_COOKIE = "ihyaa_token";
 export const ROLE_COOKIE = "ihyaa_role";
+export const EMAIL_COOKIE = "ihyaa_email";
+export const VERIFIED_COOKIE = "ihyaa_verified";
 
 /** Paths that are only reachable when authenticated. */
-const PROTECTED_PREFIXES = ["/dashboard", "/projects/new"];
+const PROTECTED_PREFIXES = ["/dashboard", "/projects/new", "/profile"];
+
+/** Dynamic project-edit pages (/projects/{id}/edit) are owner-only. */
+function isProjectEditPath(path) {
+  return /^\/projects\/[^/]+\/edit$/.test(path);
+}
+
+/**
+ * Paths that require an email-verified account (backend: `email.verified`
+ * middleware — رفع مشروع، إبداء اهتمام، AI، ...). غير المفعّل يُوجَّه لصفحة OTP
+ * قبل الوصول إليها (الدستور V — لا دخول قبل تفعيل البريد).
+ */
+function isEmailVerifiedPath(path) {
+  return path === "/projects/new" || isProjectEditPath(path);
+}
 
 /** Paths that are only reachable when NOT authenticated. */
-const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/verify-otp"];
+const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-otp"];
 
 /**
  * Middleware chain:
@@ -35,7 +51,11 @@ export default function middleware(request) {
     : pathname;
 
   const isAuthed = Boolean(request.cookies.get(AUTH_COOKIE));
-  const isProtected = PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+  const isVerified = request.cookies.get(VERIFIED_COOKIE)?.value === "1";
+  const email = request.cookies.get(EMAIL_COOKIE)?.value ?? "";
+  const isProtected =
+    PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`)) ||
+    isProjectEditPath(path);
   const isAuthPage = AUTH_PAGES.some((p) => path === p);
 
   const role = request.cookies.get(ROLE_COOKIE)?.value;
@@ -45,6 +65,14 @@ export default function middleware(request) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set("next", path);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // الدستور V: مسجّل الدخول لكن البريد غير مفعّل → وجّه لصفحة OTP قبل الوصول
+  // لصفحات رفع/تعديل المشروع (بدل مشاهدة خطأ 403 خام من الـ backend).
+  if (isEmailVerifiedPath(path) && isAuthed && !isVerified) {
+    const verifyUrl = new URL(`/${locale}/verify-otp`, request.url);
+    if (email) verifyUrl.searchParams.set("email", email);
+    return NextResponse.redirect(verifyUrl);
   }
 
   // Bare /dashboard → redirect to role-specific dashboard.
@@ -83,10 +111,15 @@ export default function middleware(request) {
   }
 
   // Authed → auth pages: send them to their dashboard.
+  // استثناء: غير المفعّل يُسمح له بالبقاء على /verify-otp لإدخال رمز التفعيل
+  // (الدستور V) — وإلا لانتهى به الأمر في حلقة إعادة توجيه.
   if (isAuthPage && isAuthed) {
-    const dashboard =
-      role === "investor" ? `/${locale}/dashboard/investor` : `/${locale}/dashboard/owner`;
-    return NextResponse.redirect(new URL(dashboard, request.url));
+    const isVerifyOtp = path === "/verify-otp";
+    if (!(isVerifyOtp && !isVerified)) {
+      const dashboard =
+        role === "investor" ? `/${locale}/dashboard/investor` : `/${locale}/dashboard/owner`;
+      return NextResponse.redirect(new URL(dashboard, request.url));
+    }
   }
 
   return intlMiddleware(request);

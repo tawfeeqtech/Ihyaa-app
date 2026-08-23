@@ -11,15 +11,19 @@ import { useTheme } from "@/shared/lib/ThemeProvider";
 import { useToast } from "@/shared/components/Toast";
 import { Button } from "@/shared/components/Button";
 import { cn } from "@/shared/utils";
+import { useAuth } from "@/features/auth";
 
-export function Header({ authed = false, role = "idea_owner" }) {
+export function Header({ hideAuthActions = false }) {
   const t = useTranslations("nav");
   const common = useTranslations("common");
   const { theme, toggle } = useTheme();
+  const { isAuthenticated, role, logout } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const dashboardHref = role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
 
   const links = [
     { href: "/projects", label: t("explore") },
@@ -28,9 +32,7 @@ export function Header({ authed = false, role = "idea_owner" }) {
   ];
 
   function handleLogout() {
-    document.cookie = "ihyaa_token=;path=/;max-age=0";
-    document.cookie = "ihyaa_role=;path=/;max-age=0";
-    localStorage.removeItem("ihyaa_user");
+    logout();
     toast.info(common("loggedOut"));
     router.push("/");
   }
@@ -76,31 +78,32 @@ export function Header({ authed = false, role = "idea_owner" }) {
             )}
           </button>
 
-          {authed ? (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Link
-                href={role === "investor" ? "/dashboard/investor" : "/dashboard/owner"}
-                className="inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-1"
-              >
-                <UserCircle size={20} className="text-primary-600" />
-                {t("dashboard")}
-              </Link>
-              <Button variant="ghost" size="sm" onClick={handleLogout} aria-label={t("logout")}>
-                <SignOut size={18} />
-              </Button>
-            </div>
-          ) : (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  {t("login")}
+          {!hideAuthActions &&
+            (isAuthenticated ? (
+              <div className="hidden items-center gap-2 sm:flex">
+                <Link
+                  href={dashboardHref}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-1"
+                >
+                  <UserCircle size={20} className="text-primary-600" />
+                  {t("dashboard")}
+                </Link>
+                <Button variant="ghost" size="sm" onClick={handleLogout} aria-label={t("logout")}>
+                  <SignOut size={18} />
                 </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="sm">{t("getStarted")}</Button>
-              </Link>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="hidden items-center gap-2 sm:flex">
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">
+                    {t("login")}
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">{t("getStarted")}</Button>
+                </Link>
+              </div>
+            ))}
 
           {/* Mobile menu toggle */}
           <button
@@ -138,9 +141,9 @@ export function Header({ authed = false, role = "idea_owner" }) {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 border-t border-border pt-3">
-                {authed ? (
+                {isAuthenticated ? (
                   <>
-                    <Link href={role === "investor" ? "/dashboard/investor" : "/dashboard/owner"} onClick={() => setMobileOpen(false)}>
+                    <Link href={dashboardHref} onClick={() => setMobileOpen(false)}>
                       <Button fullWidth variant="secondary">
                         {t("dashboard")}
                       </Button>

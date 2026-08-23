@@ -18,6 +18,30 @@ export function RequireAuth({ children }) {
   return <>{children}</>;
 }
 
+/**
+ * الدستور V — لا دخول قبل تفعيل البريد.
+ * يلفّ الصفحات الحساسة (رفع/تعديل مشروع...): غير المفعّل يُوجَّه لصفحة /verify-otp
+ * مع بريده، بدل الوصول لصفحة تعرض خطأ 403 خام من الـ backend.
+ */
+export function RequireVerifiedEmail({ children }) {
+  const { isAuthenticated, isLoading, isEmailVerified, email } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    if (!isEmailVerified) {
+      router.replace(email ? `/verify-otp?email=${encodeURIComponent(email)}` : "/verify-otp");
+    }
+  }, [isLoading, isAuthenticated, isEmailVerified, email, router]);
+
+  if (isLoading || !isAuthenticated || !isEmailVerified) return null;
+  return <>{children}</>;
+}
+
 /** Role guard — redirects mismatched roles to their own dashboard. */
 export function RequireRole({ role, children }) {
   const { role: userRole, isAuthenticated, isLoading } = useAuth();

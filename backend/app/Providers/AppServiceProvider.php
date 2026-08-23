@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Project;
 use App\Observers\ProjectObserver;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,6 +29,14 @@ class AppServiceProvider extends ServiceProvider
 
         // مزامنة فهرس البحث تلقائياً عند إنشاء/تعديل/حذف/استرجاع المشاريع (plan §5.3 · T127)
         Project::observe(ProjectObserver::class);
+
+        // رابط إعادة تعيين كلمة المرور يشير إلى الواجهة (Next.js) وليس إلى مسار Laravel (SPA/API — US-004)
+        ResetPassword::createUrlUsing(function ($user, string $token) {
+            return config('app.frontend_url')
+                .'/'.config('app.locale')
+                .'/reset-password?token='.$token
+                .'&email='.urlencode($user->getEmailForPasswordReset());
+        });
     }
 
     /**

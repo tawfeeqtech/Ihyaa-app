@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   ArrowCounterClockwise,
   ChartLineUp,
+  CheckCircle,
   Eye,
   FolderPlus,
   Heart,
@@ -44,9 +45,9 @@ export default function OwnerDashboardPage() {
       const dashRes = await api.get("/dashboard/idea-owner");
       const d = dashRes?.data ?? dashRes ?? {};
 
-      // Project list: the dashboard contract exposes `projects`, but the current
-      // backend returns aggregate counts only — fall back to the published
-      // gallery so the "My projects" table has real rows.
+      // Project list: the dashboard contract exposes `projects` (all states —
+      // draft/published/archived). Fall back to the published gallery only if
+      // the backend hasn't shipped the new field yet.
       let list = Array.isArray(d.projects) ? d.projects : null;
       if (!list) {
         const gal = await api.get("/projects?per_page=50");
@@ -263,9 +264,21 @@ export default function OwnerDashboardPage() {
                     {myProjects.map((p) => (
                       <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-surface-0/60">
                         <td className="px-5 py-4">
-                          <Link href={`/projects/${p.id}`} className="font-heading font-semibold text-text-primary hover:text-primary-600">
-                            {locale === "ar" ? p.title.ar : p.title.en}
-                          </Link>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link href={`/projects/${p.id}`} className="font-heading font-semibold text-text-primary hover:text-primary-600">
+                              {locale === "ar" ? p.title.ar : p.title.en}
+                            </Link>
+                            {p.publicationStatus === "draft" && (
+                              <span className="shrink-0 rounded-full bg-tint-warning px-2.5 py-0.5 text-xs font-semibold text-warning-ink">
+                                {t("owner.badgeDraft")}
+                              </span>
+                            )}
+                            {p.publicationStatus === "archived" && (
+                              <span className="shrink-0 rounded-full bg-surface-0 px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+                                {t("owner.badgeArchived")}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <AIScoreBadge score={p.aiScore} showLabel={false} />
@@ -275,25 +288,39 @@ export default function OwnerDashboardPage() {
                         </td>
                         <td className="px-5 py-4 font-medium text-text-primary">{p.interested}</td>
                         <td className="px-5 py-4 text-text-secondary">
-                          {p.createdAt
-                            ? format.dateTime(new Date(p.createdAt), { dateStyle: "medium" })
+                          {p.updatedAt ?? p.createdAt
+                            ? format.dateTime(new Date(p.updatedAt ?? p.createdAt), { dateStyle: "medium" })
                             : "—"}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center justify-end gap-1">
+                            {p.publicationStatus === "draft" && (
+                              <Link href={`/projects/${p.id}/edit`} className="shrink-0">
+                                <button
+                                  type="button"
+                                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-primary-500"
+                                  aria-label={t("owner.complete")}
+                                >
+                                  <CheckCircle size={16} weight="bold" />
+                                  <span className="hidden sm:inline">{t("owner.complete")}</span>
+                                </button>
+                              </Link>
+                            )}
                             <Link href={`/projects/${p.id}`}>
                               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600" aria-label={t("owner.view")}>
                                 <Eye size={18} />
                               </button>
                             </Link>
-                            <button
-                              type="button"
-                              onClick={() => toast.info(t("owner.editSoon"))}
-                              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
-                              aria-label={t("owner.edit")}
-                            >
-                              <PencilSimple size={18} />
-                            </button>
+                            <Link href={`/projects/${p.id}/edit`}>
+                              <button
+                                type="button"
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
+                                aria-label={t("owner.edit")}
+                                title={t("owner.edit")}
+                              >
+                                <PencilSimple size={18} />
+                              </button>
+                            </Link>
                             <button
                               type="button"
                               onClick={() => handleReevaluate(p.id)}

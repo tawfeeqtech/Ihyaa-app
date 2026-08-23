@@ -12,6 +12,8 @@ import {
   Eye,
   FilePdf,
   Heart,
+  Hourglass,
+  Images,
   Link as LinkIcon,
   Lock,
   Users,
@@ -21,6 +23,10 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { AIScoreBadge, getScoreTier } from "./AIScoreBadge";
+import { RadarChart } from "./RadarChart";
+import { ImageGallery } from "./ImageGallery";
+import { PdfViewer } from "./PdfViewer";
+import { VideoEmbed } from "./VideoEmbed";
 import { ScoreRing } from "./ScoreRing";
 import { SkeletonText } from "@/shared/components/Skeleton";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -58,6 +64,12 @@ export function ProjectDetail({ project }) {
   const router = useRouter();
   const authed = useDemoAuth();
 
+  // Disclosure level for the AI report, driven by the backend's `report_access`
+  // (none | overall | dimensions | full) — not by the demo auth cookie.
+  const reportAccess = project.report_access ?? "none";
+  const canViewDimensions = reportAccess === "dimensions" || reportAccess === "full";
+  const canViewFull = reportAccess === "full";
+
   const [tab, setTab] = useState("overview");
   const [interestSent, setInterestSent] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -65,9 +77,26 @@ export function ProjectDetail({ project }) {
 
   const title = locale === "ar" ? project.title.ar : project.title.en;
   const description = locale === "ar" ? project.description.ar : project.description.en;
-  const sectorText = locale === "ar" ? sectorLabels[project.sector].ar : sectorLabels[project.sector].en;
-  const statusText = locale === "ar" ? statusLabels[project.status].ar : statusLabels[project.status].en;
+  const sectorText =
+    locale === "ar"
+      ? (sectorLabels[project.sector]?.ar ?? project.sector)
+      : (sectorLabels[project.sector]?.en ?? project.sector);
+  const statusText =
+    locale === "ar"
+      ? (statusLabels[project.status]?.ar ?? project.status)
+      : (statusLabels[project.status]?.en ?? project.status);
   const tier = getScoreTier(project.aiScore);
+
+  // Attachments from ProjectFile::toArrayApi(): { type: 'image'|'pdf'|'document', url, ... }.
+  const imageFiles = Array.isArray(project.files)
+    ? project.files.filter((f) => f.type === "image")
+    : [];
+  const pdfFiles = Array.isArray(project.files)
+    ? project.files.filter((f) => f.type === "pdf" || f.mime_type === "application/pdf")
+    : [];
+
+  // Translated axis labels for the radar (same order as dimensionKeys).
+  const radarLabels = dimensionKeys.map((dim) => t(`report.dimensions.${dim}`));
 
   /* Simulate the async AI report fetch (backend: Laravel Queue + WebSocket). */
   useEffect(() => {
@@ -119,7 +148,8 @@ export function ProjectDetail({ project }) {
   return (
     <div className="space-y-6">
       {/* Cover header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600 pattern-islamic px-6 pb-24 pt-16 sm:px-10 sm:pb-28 sm:pt-20">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600 px-6 pb-24 pt-16 sm:px-10 sm:pb-28 sm:pt-20">
+        <div className="pointer-events-none absolute inset-0 pattern-islamic" aria-hidden />
         <div className="relative z-10 max-w-2xl">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white">
@@ -142,11 +172,17 @@ export function ProjectDetail({ project }) {
               <ScoreRing score={project.aiScore} size={110} />
             </div>
             <StatCell icon={CalendarBlank} label={t("detail.stats.date")} value={format.dateTime(new Date(project.createdAt), { dateStyle: "medium" })} />
-            <StatCell icon={Eye} label={t("detail.stats.views")} value={format.number(project.views)} />
+            <StatCell
+              icon={Eye}
+              label={t("detail.stats.views")}
+              value={format.number(project.views)}
+              valueClassName="text-primary-600"
+            />
             <StatCell
               icon={Heart}
               label={t("detail.stats.budget")}
               value={format.number(project.budget, { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
+              valueClassName="text-primary-600"
             />
           </div>
 
@@ -207,19 +243,49 @@ export function ProjectDetail({ project }) {
                 <p className="leading-relaxed text-text-secondary">{t("detail.overviewBody2")}</p>
 
                 {project.videoUrl && (
-                  <div className="overflow-hidden rounded-xl border border-border bg-surface-1">
-                    <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                  <section aria-label={t("detail.videoDemo")}>
+                    <div className="mb-3 flex items-center gap-2">
                       <VideoCamera size={18} className="text-primary-600" aria-hidden />
-                      <span className="text-sm font-medium text-text-primary">{t("detail.videoDemo")}</span>
+                      <h3 className="text-sm font-medium text-text-primary">{t("detail.videoDemo")}</h3>
                     </div>
-                    <div className="aspect-video bg-surface-0 p-4">
-                      <div className="flex h-full items-center justify-center rounded-lg bg-surface-1">
-                        <p className="text-sm text-text-secondary">
-                          {t("detail.videoPlaceholder")} — {project.videoUrl}
-                        </p>
-                      </div>
+                    <VideoEmbed
+                      url={project.videoUrl}
+                      provider={project.videoProvider}
+                      title={t("detail.videoDemo")}
+                    />
+                  </section>
+                )}
+
+                {imageFiles.length > 0 && (
+                  <section aria-label={t("detail.filesTitle")}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Images size={18} className="text-primary-600" aria-hidden />
+                      <h3 className="text-sm font-medium text-text-primary">{t("detail.filesTitle")}</h3>
                     </div>
-                  </div>
+                    <ImageGallery
+                      images={imageFiles}
+                      prevLabel={t("detail.galleryPrev")}
+                      nextLabel={t("detail.galleryNext")}
+                    />
+                  </section>
+                )}
+
+                {pdfFiles.length > 0 && (
+                  <section aria-label={t("detail.pdfsTitle")}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <FilePdf size={18} className="text-danger" aria-hidden />
+                      <h3 className="text-sm font-medium text-text-primary">{t("detail.pdfsTitle")}</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {pdfFiles.map((file) => (
+                        <PdfViewer
+                          key={file.id ?? file.url}
+                          file={file}
+                          title={file.original_name ?? t("detail.pdfsTitle")}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 )}
 
                 {project.repoUrl && (
@@ -247,20 +313,15 @@ export function ProjectDetail({ project }) {
                       <SkeletonText lines={3} />
                     </div>
                   </div>
-                ) : !authed ? (
+                ) : reportAccess === "none" ? (
                   <EmptyState
-                    icon={Lock}
-                    title={t("report.gatedTitle")}
-                    description={t("report.gatedDescription")}
-                    action={
-                      <Link href="/login">
-                        <Button>{t("report.gatedCta")}</Button>
-                      </Link>
-                    }
+                    icon={Hourglass}
+                    title={t("report.pendingTitle")}
+                    description={t("report.pendingDescription")}
                   />
                 ) : (
                   <>
-                    {/* Score + confidence */}
+                    {/* Score + confidence — always visible once an evaluation exists */}
                     <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-surface-1 p-8 sm:flex-row sm:justify-around">
                       <div className="flex flex-col items-center gap-2">
                         <ScoreRing score={project.aiScore} size={150} />
@@ -275,106 +336,130 @@ export function ProjectDetail({ project }) {
                       </div>
                     </div>
 
-                    {/* Dimension bars */}
-                    <section aria-label={t("report.dimensions")}>
-                      <h3 className="mb-4 font-heading text-lg font-bold">{t("report.dimensions")}</h3>
-                      <div className="space-y-4 rounded-xl border border-border bg-surface-1 p-6">
-                        {dimensionKeys.map((dim) => (
-                          <div key={dim} className="flex items-center gap-3">
-                            <span className="w-32 shrink-0 text-sm font-medium text-text-primary">
-                              {t(`report.dimensions.${dim}`)}
-                            </span>
-                            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-0">
-                              <motion.div
-                                className={cn(
-                                  "h-full rounded-full",
-                                  tier === "excellent" || tier === "good"
-                                    ? "bg-primary-600"
-                                    : tier === "medium"
-                                      ? "bg-warning"
-                                      : "bg-danger"
-                                )}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${project.dimensions[dim]}%` }}
-                                transition={{ duration: 0.8, delay: 0.1 * dimensionKeys.indexOf(dim), ease: "easeOut" }}
-                              />
-                            </div>
-                            <span className="w-10 text-end font-heading text-sm font-bold text-text-primary">
-                              {project.dimensions[dim]}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
+                    {/* overall level: only the overall score, sign-in unlocks dimensions */}
+                    {reportAccess === "overall" && (
+                      <EmptyState
+                        icon={Lock}
+                        title={t("report.gatedTitle")}
+                        description={t("report.gatedDescription")}
+                        action={
+                          <Link href="/login">
+                            <Button>{t("report.gatedCta")}</Button>
+                          </Link>
+                        }
+                      />
+                    )}
 
-                    {/* SWOT */}
-                    <section aria-label={t("report.swot")}>
-                      <h3 className="mb-4 font-heading text-lg font-bold">{t("report.swot")}</h3>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {(
-                          [
-                            { key: "strengths" },
-                            { key: "weaknesses" },
-                            { key: "opportunities" },
-                            { key: "threats" },
-                          ]
-                        ).map(({ key }) => (
-                          <div
-                            key={key}
-                            className="rounded-xl border border-border bg-surface-1 p-5"
-                          >
-                            <h4 className={cn("mb-3 flex items-center gap-2 rounded-lg px-3 py-1.5 font-heading text-sm font-bold", swotStyles[key].header)}>
-                              <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", swotStyles[key].icon)} />
-                              {t(`report.swotItems.${key}.title`)}
-                            </h4>
-                            <ul className="space-y-2">
-                              {project.swot[key].map((item, i) => (
-                                <li key={i} className="flex items-start gap-2 text-sm text-text-primary">
-                                  <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-text-secondary/50" />
-                                  {locale === "ar" ? item.ar : item.en}
-                                </li>
-                              ))}
-                            </ul>
+                    {/* dimensions + full: dimension scores */}
+                    {canViewDimensions && (
+                      <>
+                        <section aria-label={t("report.dimensionsTitle")}>
+                          <h3 className="mb-4 font-heading text-lg font-bold">{t("report.dimensionsTitle")}</h3>
+                          <div className="mb-4 rounded-xl border border-border bg-surface-1 p-6">
+                            <RadarChart dimensions={project.dimensions} labels={radarLabels} />
                           </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    {/* Gap analysis */}
-                    <section aria-label={t("report.gapsTitle")}>
-                      <h3 className="mb-4 font-heading text-lg font-bold">{t("report.gapsTitle")}</h3>
-                      <div className="space-y-3">
-                        {(["technical", "market", "team", "documentation"]).map((gap, i) => (
-                          <div key={gap} className="flex items-start gap-4 rounded-xl border border-border bg-surface-1 p-5">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-100 font-heading text-sm font-bold text-primary-600">
-                              {i + 1}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="font-heading text-sm font-semibold text-text-primary">
-                                  {t(`report.gaps.${gap}.title`)}
-                                </p>
-                                <span
-                                  className={cn(
-                                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                    i === 0
-                                      ? "bg-tint-danger text-danger-ink"
-                                      : i === 1
-                                        ? "bg-tint-warning text-warning-ink"
-                                        : "bg-tint-success text-success-ink"
-                                  )}
-                                >
-                                  {t(`report.priority.${i === 0 ? "high" : i === 1 ? "medium" : "low"}`)}
+                          <div className="space-y-4 rounded-xl border border-border bg-surface-1 p-6">
+                            {dimensionKeys.filter((dim) => typeof project.dimensions[dim] === "number").map((dim) => (
+                              <div key={dim} className="flex items-center gap-3">
+                                <span className="w-32 shrink-0 text-sm font-medium text-text-primary">
+                                  {t(`report.dimensions.${dim}`)}
+                                </span>
+                                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-0">
+                                  <motion.div
+                                    className={cn(
+                                      "h-full rounded-full",
+                                      tier === "excellent" || tier === "good"
+                                        ? "bg-primary-600"
+                                        : tier === "medium"
+                                          ? "bg-warning"
+                                          : "bg-danger"
+                                    )}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${project.dimensions[dim]}%` }}
+                                    transition={{ duration: 0.8, delay: 0.1 * dimensionKeys.indexOf(dim), ease: "easeOut" }}
+                                  />
+                                </div>
+                                <span className="w-10 text-end font-heading text-sm font-bold text-text-primary">
+                                  {project.dimensions[dim]}
                                 </span>
                               </div>
-                              <p className="mt-1.5 text-sm text-text-secondary">
-                                {t(`report.gaps.${gap}.recommendation`)}
-                              </p>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </section>
+                        </section>
+
+                        {/* full level only: SWOT + gap analysis */}
+                        {canViewFull && (
+                          <>
+                            <section aria-label={t("report.swot")}>
+                              <h3 className="mb-4 font-heading text-lg font-bold">{t("report.swot")}</h3>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                {(
+                                  [
+                                    { key: "strengths" },
+                                    { key: "weaknesses" },
+                                    { key: "opportunities" },
+                                    { key: "threats" },
+                                  ]
+                                ).map(({ key }) => (
+                                  <div
+                                    key={key}
+                                    className="rounded-xl border border-border bg-surface-1 p-5"
+                                  >
+                                    <h4 className={cn("mb-3 flex items-center gap-2 rounded-lg px-3 py-1.5 font-heading text-sm font-bold", swotStyles[key].header)}>
+                                      <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", swotStyles[key].icon)} />
+                                      {t(`report.swotItems.${key}.title`)}
+                                    </h4>
+                                    <ul className="space-y-2">
+                                      {project.swot[key].map((item, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm text-text-primary">
+                                          <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-text-secondary/50" />
+                                          {locale === "ar" ? item.ar : item.en}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+
+                            <section aria-label={t("report.gapsTitle")}>
+                              <h3 className="mb-4 font-heading text-lg font-bold">{t("report.gapsTitle")}</h3>
+                              <div className="space-y-3">
+                                {(["technical", "market", "team", "documentation"]).map((gap, i) => (
+                                  <div key={gap} className="flex items-start gap-4 rounded-xl border border-border bg-surface-1 p-5">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-100 font-heading text-sm font-bold text-primary-600">
+                                      {i + 1}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="font-heading text-sm font-semibold text-text-primary">
+                                          {t(`report.gaps.${gap}.title`)}
+                                        </p>
+                                        <span
+                                          className={cn(
+                                            "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                                            i === 0
+                                              ? "bg-tint-danger text-danger-ink"
+                                              : i === 1
+                                                ? "bg-tint-warning text-warning-ink"
+                                                : "bg-tint-success text-success-ink"
+                                          )}
+                                        >
+                                          {t(`report.priority.${i === 0 ? "high" : i === 1 ? "medium" : "low"}`)}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1.5 text-sm text-text-secondary">
+                                        {t(`report.gaps.${gap}.recommendation`)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          </>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -512,12 +597,13 @@ function StatCell({
   icon: IconComponent,
   label,
   value,
+  valueClassName,
 }) {
   return (
     <div className="flex flex-col items-center gap-1 text-center">
       <IconComponent size={20} className="text-primary-500" aria-hidden />
       <p className="text-xs text-text-secondary">{label}</p>
-      <p className="font-heading text-sm font-bold text-text-primary">{value}</p>
+      <p className={cn("font-heading text-sm font-bold", valueClassName ?? "text-text-primary")}>{value}</p>
     </div>
   );
 }

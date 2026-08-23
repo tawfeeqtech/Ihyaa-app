@@ -4,14 +4,17 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
+use App\Http\Resources\UserResource;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -107,9 +110,26 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    /**
+     * Pivot role_user — توسعة مقبولة من Sprint 1 (توثيق T168).
+     * عمود `role` على جدول users هو المصدر الأساسي لدور المستخدم (تستخدمه الـ Middleware
+     * وـ Rate Limiters)، والـ pivot مرجعي يُزامن عبر User::setRole (SRS-F01-07).
+     */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class)->withTimestamps();
+    }
+
+    /** الملف الموسّع (user_profiles — 1:1) — T165: الجدول منشأ، النقل لاحقاً */
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    /** رموز OTP (otp_codes — 1:N) — T165: الجدول منشأ، النقل لاحقاً */
+    public function otpCodes(): HasMany
+    {
+        return $this->hasMany(OtpCode::class);
     }
 
     // ——————————————————————— الدور ———————————————————————
@@ -169,6 +189,13 @@ class User extends Authenticatable
 
         $this->sendOtpEmail($code);
 
+        // تجربة التطوير: إظهار الرمز في السجل لتسهيل الاستخدام المحلي.
+        // يُفعَّل في بيئة DEBUG أو عند MAIL_MAILER=log (البريد يذهب للسجل أصلاً —
+        // لكن سطر مباشر أوضح للبحث): "Ihyaa OTP for {email}: {code}".
+        if (config('app.debug') || config('mail.default') === 'log') {
+            Log::info("Ihyaa OTP for {$this->email}: {$code}");
+        }
+
         return $code;
     }
 
@@ -227,23 +254,9 @@ class User extends Authenticatable
 
     // ——————————————————————— أدوات ———————————————————————
 
-    /** تمثيل الرمز للاستجابة الموحّدة (دون بيانات حساسة). */
+    /** تمثيل الرمز للاستجابة الموحّدة (دون بيانات حساسة). T161: التفويض إلى UserResource. */
     public function toApiArray(): array
     {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->email,
-            'role' => $this->role?->value,
-            'email_verified' => $this->email_verified_at !== null,
-            'avatar_url' => $this->avatar_path ? asset('storage/'.$this->avatar_path) : null,
-            'bio' => $this->bio,
-            'university' => $this->university,
-            'major' => $this->major,
-            'investment_focus' => $this->investment_focus,
-            'investment_range' => $this->investment_range,
-            'preferred_sectors' => $this->preferred_sectors,
-            'created_at' => $this->created_at?->toISOString(),
-        ];
+        return UserResource::make($this)->resolve();
     }
 }

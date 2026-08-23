@@ -99,7 +99,7 @@ export default async function LocaleLayout({ children, params }) {
           }}
         />
       </head>
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <ThemeProvider>
           <NextIntlClientProvider>
             <AuthProvider>

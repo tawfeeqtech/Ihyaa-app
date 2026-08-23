@@ -85,6 +85,10 @@
   --color-text-primary: #e8edf2;
   --color-text-secondary: #8fa0b2;
   --color-accent-100: #1a3040;
+  /* Primary — lightened for legibility on dark surfaces
+     (#5b8db0 ≈ 4.7:1 on surface-0; white-on ≈ 3.6:1 for buttons/UI) */
+  --color-primary-600: #5b8db0;
+  --color-primary-500: #6b9cc0;
   --color-tint-success: #1a3d32;
   --color-tint-danger: #3d201e;
   --color-tint-warning: #3d3020;

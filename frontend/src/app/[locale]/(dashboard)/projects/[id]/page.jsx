@@ -13,21 +13,27 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
  */
 function mapApiToLegacy(api) {
   const evaluation = api.evaluation ?? {};
-  const dims = evaluation.dimension_scores ?? {};
+  // Actual evaluation report shape (Evaluation::toReportArray): `scores` is a
+  // map of full dimension names → { score, sub_scores, strengths, weaknesses, ... }.
+  const scores = evaluation.scores ?? {};
 
   return {
     id: String(api.id),
     title: { ar: api.title, en: api.title },
     description: { ar: api.description ?? "", en: api.description ?? "" },
-    sector: api.category?.slug ?? "tech",
-    status: api.status ?? "needs_funding",
-    aiScore: api.ai_score ?? 0,
+    sector: api.category?.slug ?? "other",
+    status: api.state ?? api.status ?? "needs_funding",
+    aiScore: Math.round(api.ai_score ?? 0),
+    // Disclosure level for the AI report (none | overall | dimensions | full).
+    // The backend derives it from the requesting user; fall back to the most
+    // conservative value so nothing is leaked when the field is missing.
+    report_access: api.report_access ?? "none",
     dimensions: {
-      technical: dims.technical_quality ?? dims.technical ?? 60,
-      innovation: dims.innovation ?? 60,
-      market: dims.market_viability ?? dims.market ?? 60,
-      team: dims.team_completeness ?? dims.team ?? 60,
-      documentation: dims.documentation ?? 60,
+      technical: scores.technical_quality?.score ?? null,
+      innovation: scores.innovation?.score ?? null,
+      market: scores.market_viability?.score ?? null,
+      team: scores.team_completeness?.score ?? null,
+      documentation: scores.documentation?.score ?? null,
     },
     swot: {
       strengths: (evaluation.swot?.strengths ?? []).map((s) => ({ ar: s, en: s })),
@@ -42,8 +48,11 @@ function mapApiToLegacy(api) {
     },
     interested: api.interested_count ?? 0,
     views: api.view_count ?? 0,
-    budget: api.budget_min ?? 0,
-    videoUrl: api.video ?? null,
+    budget: api.budget?.max ?? api.budget_min ?? 0,
+    videoUrl: api.video?.url ?? null,
+    videoProvider: api.video?.provider ?? null,
+    // Attachments (image/pdf/document) as returned by ProjectFile::toArrayApi().
+    files: Array.isArray(api.files) ? api.files : [],
     repoUrl: api.github_url ?? null,
     createdAt: api.created_at ?? new Date().toISOString(),
   };
@@ -61,7 +70,9 @@ async function fetchProject(id) {
 
     const res = await fetch(`${API_BASE}/projects/${id}`, { headers, cache: "no-store" });
     if (!res.ok) return null;
-    return res.json();
+    // API envelope is { success, message, data } — unwrap the project object.
+    const body = await res.json();
+    return body?.data ?? body;
   } catch {
     return null;
   }

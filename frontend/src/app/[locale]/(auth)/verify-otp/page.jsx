@@ -1,25 +1,55 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { CheckCircle, ShieldCheck, Timer } from "@phosphor-icons/react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
 import { useToast } from "@/shared/components/Toast";
+import { api } from "@/shared/lib/api";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { EMAIL_COOKIE, readCookie } from "@/features/auth/context/AuthProvider";
 import { cn } from "@/shared/utils";
 
 const OTP_LENGTH = 6;
 /** OTP validity: 1 minute per design-decisions.md §4. */
 const OTP_TTL_SECONDS = 60;
 
-export default function VerifyOtpPage() {
+/**
+ * Map a backend OTP error to a user-facing translated message.
+ * Laravel throttle 429 responses carry a `Retry-After` header (seconds).
+ */
+function mapOtpError(err, t) {
+  const code = err?.body?.code;
+  if (code === "OTP_EXPIRED") return t("errors.otpExpired");
+  if (code === "OTP_INVALID") return t("errors.otpInvalid");
+  if (code === "OTP_BLOCKED") return t("errors.otpBlocked");
+  if (err?.status === 429) {
+    const retry = err.headers?.get?.("Retry-After");
+    return retry
+      ? t("errors.otpRateLimited", { seconds: retry })
+      : t("errors.otpRateLimitedGeneric");
+  }
+  return err?.body?.message ?? t("errors.generic");
+}
+
+function VerifyOtpForm() {
   const t = useTranslations("auth");
   const toast = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
+
+  // email passes as ?email=... from the register flow (T125), or falls back to
+  // the `ihyaa_email` cookie when the user is redirected here by the middleware
+  // / guard / API client (old unverified session with a stale token).
+  const email = searchParams.get("email") ?? readCookie(EMAIL_COOKIE) ?? "";
 
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
   const [secondsLeft, setSecondsLeft] = useState(OTP_TTL_SECONDS);
   const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState(null);
   const inputsRef = useRef([]);
 
@@ -60,26 +90,100 @@ export default function VerifyOtpPage() {
     }
   }
 
-  function handleVerify() {
+  async function handleVerify() {
     if (!complete) {
       setError(t("errors.otpIncomplete"));
       return;
     }
+    if (!email) {
+      setError(t("errors.otpEmailMissing"));
+      return;
+    }
     setVerifying(true);
-    // Simulate OTP verification; replace with POST /api/v1/verify-otp in Sprint 1.
-    window.setTimeout(() => {
-      setVerifying(false);
-      toast.success(t("otpVerified"));
+    setError(null);
+    try {
+      // الدستور V · T124: register لا يُصدر توكن — التوكن يأتي هنا عند التفعيل الناجح.
+      const data = await api.post("/email/verify", {
+        email,
+        code: digits.join(""),
+      });
+
+      if (data?.token && data?.user) {
+        login(data.token, data.user, false);
+        toast.success(t("otpVerified"));
+        const dashboardPath =
+          data.user.role === "investor"
+            ? "/dashboard/investor"
+            : "/dashboard/owner";
+        router.push(dashboardPath);
+        return;
+      }
+
+      // Already verified — the public endpoint never issues a token on this
+      // path (safe), so send the user to sign in normally.
+      toast.success(t("errors.otpAlreadyVerified"));
       router.push("/login");
-    }, 700);
+    } catch (err) {
+      setError(mapOtpError(err, t));
+      // A wrong/expired/blocked code must be re-entered after the OTP resets.
+      const code = err?.body?.code;
+      if (
+        code === "OTP_INVALID" ||
+        code === "OTP_EXPIRED" ||
+        code === "OTP_BLOCKED" ||
+        err?.status === 429
+      ) {
+        setDigits(Array(OTP_LENGTH).fill(""));
+        inputsRef.current[0]?.focus();
+      }
+    } finally {
+      setVerifying(false);
+    }
   }
 
-  function handleResend() {
-    setDigits(Array(OTP_LENGTH).fill(""));
+  async function handleResend() {
+    if (!email) {
+      setError(t("errors.otpEmailMissing"));
+      return;
+    }
+    setResending(true);
     setError(null);
-    setSecondsLeft(OTP_TTL_SECONDS);
-    toast.success(t("otpResent"));
-    inputsRef.current[0]?.focus();
+    try {
+      await api.post("/email/resend", { email });
+      setDigits(Array(OTP_LENGTH).fill(""));
+      setSecondsLeft(OTP_TTL_SECONDS);
+      toast.success(t("otpResent"));
+      inputsRef.current[0]?.focus();
+    } catch (err) {
+      setError(mapOtpError(err, t));
+    } finally {
+      setResending(false);
+    }
+  }
+
+  // Opened without ?email= (e.g. direct navigation) — friendly dead-end.
+  if (!email) {
+    return (
+      <div className="text-center">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-100 shadow-glow">
+          <ShieldCheck size={32} weight="light" className="text-primary-600" />
+        </span>
+        <h1 className="mt-6 font-heading text-3xl font-bold">{t("otpTitle")}</h1>
+        <p role="alert" className="mx-auto mt-2 max-w-sm text-center text-danger">
+          {t("errors.otpEmailMissing")}
+        </p>
+        <div className="mt-8">
+          <Button fullWidth size="lg" onClick={() => router.push("/register")}>
+            {t("createAccountButton")}
+          </Button>
+        </div>
+        <p className="mt-3 text-center text-sm text-text-secondary">
+          <Link href="/login" className="font-semibold text-primary-600 hover:underline">
+            {t("backToLogin")}
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -142,7 +246,7 @@ export default function VerifyOtpPage() {
         </Button>
 
         {expired ? (
-          <Button fullWidth variant="secondary" onClick={handleResend}>
+          <Button fullWidth variant="secondary" onClick={handleResend} loading={resending}>
             {t("resendOtp")}
           </Button>
         ) : (
@@ -151,7 +255,8 @@ export default function VerifyOtpPage() {
             <button
               type="button"
               onClick={handleResend}
-              className="font-semibold text-primary-600 hover:underline"
+              disabled={resending}
+              className="font-semibold text-primary-600 hover:underline disabled:opacity-60"
             >
               {t("resendOtp")}
             </button>
@@ -170,5 +275,13 @@ export default function VerifyOtpPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyOtpForm />
+    </Suspense>
   );
 }

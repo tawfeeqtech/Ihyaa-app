@@ -27,7 +27,8 @@ export function ProjectCard({ project, noBookmark = false }) {
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-primary-600/10">
       {/* Cover */}
       <Link href={`/projects/${project.id}`} aria-label={title} className="block">
-        <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600 pattern-islamic">
+        <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary-600 via-primary-500 to-primary-600">
+          <div className="pointer-events-none absolute inset-0 pattern-islamic" aria-hidden />
           <span
             aria-hidden
             className="absolute inset-0 flex items-center justify-center font-heading text-6xl font-bold text-white/25"

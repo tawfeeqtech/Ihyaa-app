@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Models\Notification;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Traits\ApiResponse;
@@ -26,24 +29,10 @@ class AuthController
 
     // ——————————————————————— التسجيل (RL-AUTH-01 · 3/دقيقة) ———————————————————————
 
-    public function register(Request $request): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', Rule::enum(UserRole::class)],
-            // ملف صاحب الفكرة
-            'university' => ['nullable', 'string', 'max:190'],
-            'major' => ['nullable', 'string', 'max:190'],
-            // ملف المستثمر
-            'investment_focus' => ['nullable', 'string', 'max:190'],
-            'investment_range' => ['nullable', 'array', 'min:1', 'max:2'],
-            'investment_range.min' => ['nullable', 'numeric', 'min:0'],
-            'investment_range.max' => ['nullable', 'numeric', 'gte:investment_range.min'],
-            'preferred_sectors' => ['nullable', 'array', 'max:10'],
-            'preferred_sectors.*' => ['string', 'max:100'],
-        ]);
+        // T163: القواعد في RegisterRequest — نقل من الـ controller بلا تغيير في السلوك.
+        $data = $request->validated();
 
         $role = UserRole::from($data['role']);
 
@@ -70,27 +59,37 @@ class AuthController
             $user->roles()->attach($roleModel->id);
         }
 
+        // إشعار ترحيبي فوري (T144) — في التطبيق فقط، بلا بريد (الدستور C11).
+        Notification::pushNotification(
+            $user->id,
+            'welcome',
+            __('notifications.welcome_title'),
+            __('notifications.welcome_body'),
+            ['url' => '/dashboard'],
+        );
+
         // OTP تفعيل البريد — إلزامي (SRS-F01-02)
-        $user->generateOtp();
+        $otp = $user->generateOtp();
 
-        $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
+        // الدستور V · US-001 s6: لا يُصدر توكن قبل تفعيل البريد (T124).
+        // التوكن يُصدر بعد التفعيل الناجح فقط — في verifyEmail() أو login().
+        $response = ['otp_required' => true];
 
-        return $this->created([
-            'token' => $token->plainTextToken,
-            'token_expires_at' => now()->addHours(User::TOKEN_EXPIRY_HOURS)->toISOString(),
-            'user' => $user->toApiArray(),
-            'otp_required' => true,
-        ], __('auth.registered'));
+        // تجربة التطوير: إظهار الرمز في استجابة register عند APP_DEBUG=true فقط
+        // (لا يُكشف في الإنتاج). الرمز يُنشأ هنا ويُرسل بالبريد — هذه نسخة مساعدة.
+        if (config('app.debug')) {
+            $response['dev_otp'] = $otp;
+        }
+
+        return $this->created($response, __('auth.registered'));
     }
 
     // ——————————————————————— الدخول (RL-AUTH-02 · 5/دقيقة لكل بريد) ———————————————————————
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'string', 'email', 'max:190'],
-            'password' => ['required', 'string'],
-        ]);
+        // T163: القواعد في LoginRequest — نقل من الـ controller بلا تغيير في السلوك.
+        $data = $request->validated();
 
         $user = User::where('email', $data['email'])->first();
 
@@ -174,7 +173,14 @@ class AuthController
             return $this->error('OTP_INVALID', __('auth.otp_invalid'), 422);
         }
 
-        return $this->success(['verified' => true], __('auth.otp_verified'));
+        // الدستور V · US-001 s6: لحظة التفعيل الناجح — هنا يُصدر التوكن لأول مرة (T124).
+        $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
+
+        return $this->success([
+            'token' => $token->plainTextToken,
+            'token_expires_at' => now()->addHours(User::TOKEN_EXPIRY_HOURS)->toISOString(),
+            'user' => $user->toApiArray(),
+        ], __('auth.otp_verified'));
     }
 
     /** إعادة إرسال رمز OTP — الحد 3/دقيقة عبر throttle:api.otp */
@@ -317,6 +323,8 @@ class AuthController
             'token' => $token->plainTextToken,
             'role' => $user->role?->value,
             'name' => $user->name,
+            'email' => $user->email,
+            'email_verified' => $user->email_verified_at !== null ? '1' : '0',
             'role_required' => $roleRequired ? '1' : '0',
             'role_setup_state' => $roleSetupState ?? '',
             'provider' => $provider,

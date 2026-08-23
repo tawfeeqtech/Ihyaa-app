@@ -50,6 +50,11 @@
     "files.pdf_limit": "Maximum :max PDF files per project",
     "files.uploaded": "Files uploaded successfully",
     "files.deleted": "File deleted",
+    "files.invalid": "File is corrupt or unreadable",
+    "files.too_large": "File size exceeds the maximum (:max_kb KB)",
+    "files.invalid_extension": "File extension is not allowed",
+    "files.executable_blocked": "Executable files are not allowed",
+    "files.mime_mismatch": "The real file type does not match its extension",
 
     "evaluation.queued": "Evaluation started — you will be notified when complete",
     "evaluation.cache_active": "Evaluations are available once every :minutes minutes — try later",
@@ -69,6 +74,8 @@
     "notifications.interest_accepted_title": "Your interest in :project was accepted",
     "notifications.interest_rejected_title": "Your interest in :project was rejected",
     "notifications.interest_cancelled_title": "An investor cancelled interest in :project",
+    "notifications.welcome_title": "Welcome to Ihyaa",
+    "notifications.welcome_body": "Your account was created successfully. Start by uploading your project or discovering investment opportunities.",
 
     "saved.saved": "Project saved",
     "saved.removed": "Project removed from saved",
@@ -78,6 +85,7 @@
     "trash.expired": "Recovery period (30 days) ended — force delete only",
     "trash.restored": "Project restored",
     "trash.force_deleted": "Project permanently deleted",
+    "trash.confirm_required": "Confirmation is required for permanent deletion",
 
     "ai_agent.analysis_queued": "Analysis started — retrieve it with the artifact id",
     "ai_agent.artifact_not_found": "Analysis not found or expired (24 hours)"

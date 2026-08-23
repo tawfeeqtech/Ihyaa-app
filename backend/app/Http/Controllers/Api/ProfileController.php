@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
+use App\Http\Resources\ProfileResource;
 use App\Models\User;
 use App\Support\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -72,7 +73,12 @@ class ProfileController
     public function uploadAvatar(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'avatar' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
+            'avatar' => [
+                'required',
+                'image',
+                'mimes:'.implode(',', config('uploads.avatar.mimes')),
+                'max:'.config('uploads.avatar.max_kb'),
+            ],
         ]);
 
         $user = $request->user();
@@ -86,27 +92,9 @@ class ProfileController
         ], __('profile.avatar_updated'));
     }
 
-    /** ملف عام (L2 — SRS-API-12) — لا بريد ولا بيانات حساسة */
+    /** ملف عام (L2 — SRS-API-12) — لا بريد ولا بيانات حساسة · T161: ProfileResource */
     public function showPublic(User $user): JsonResponse
     {
-        $data = [
-            'id' => $user->id,
-            'name' => $user->name,
-            'role' => $user->role?->value,
-            'avatar_url' => $user->avatar_path ? asset('storage/'.$user->avatar_path) : null,
-            'bio' => $user->bio,
-        ];
-
-        if ($user->isIdeaOwner()) {
-            $data['university'] = $user->university;
-            $data['major'] = $user->major;
-        }
-
-        if ($user->isInvestor()) {
-            $data['investment_focus'] = $user->investment_focus;
-            $data['preferred_sectors'] = $user->preferred_sectors;
-        }
-
-        return $this->success($data);
+        return $this->success(ProfileResource::make($user)->resolve());
     }
 }

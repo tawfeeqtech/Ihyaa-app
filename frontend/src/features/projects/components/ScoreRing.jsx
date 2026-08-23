@@ -2,16 +2,31 @@
 
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { getScoreTier } from "./AIScoreBadge";
+
+/**
+ * Ring color per score tier — mirrors AIScoreBadge's tierClasses so the
+ * score reads as danger/warning/success/excellent rather than a single brand
+ * blue. Uses CSS variables so both light and dark themes resolve correctly.
+ */
+const tierColors = {
+  weak: "var(--color-danger)",
+  medium: "var(--color-warning)",
+  good: "var(--color-success)",
+  excellent: "var(--color-primary-600)",
+};
 
 /**
  * Animated circular AI score ring — fills up when scrolled into view.
+ * Color follows the score tier by default; pass `color` to override.
  */
-export function ScoreRing({ score, size = 180, color = "var(--color-primary-600)" }) {
+export function ScoreRing({ score, size = 180, color }) {
   const stroke = 14;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const wrapRef = useRef(null);
   const inView = useInView(wrapRef, { once: true, margin: "-60px" });
+  const ringColor = color ?? tierColors[getScoreTier(score)] ?? "var(--color-primary-600)";
 
   return (
     <div ref={wrapRef} className="relative inline-flex items-center justify-center">
@@ -29,7 +44,7 @@ export function ScoreRing({ score, size = 180, color = "var(--color-primary-600)
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={color}
+          stroke={ringColor}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -41,7 +56,8 @@ export function ScoreRing({ score, size = 180, color = "var(--color-primary-600)
       </svg>
       <div className="absolute text-center">
         <motion.p
-          className="font-heading text-4xl font-bold text-primary-600"
+          className="font-heading text-4xl font-bold"
+          style={{ color: ringColor }}
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ delay: 0.8 }}

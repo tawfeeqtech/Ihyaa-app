@@ -37,8 +37,9 @@ return new class extends Migration
             $table->decimal('budget_min', 12, 2)->nullable();
             $table->decimal('budget_max', 12, 2)->nullable();
 
-            // مستوى الإفصاح عن تقرير AI: 1 زائر | 2 مسجل | 3 بعد الاتفاق (الافتراضي)
-            $table->unsignedTinyInteger('visibility_level')->default(3);
+            // مستوى الإفصاح عن تقرير AI: 1 زائر | 2 مسجل | 3 بعد الاتفاق
+            // الافتراضي 2 (مسجّل) — المسجّل يرى الأبعاد + الرادار افتراضياً (US-038 AC2 · T127)
+            $table->unsignedTinyInteger('visibility_level')->default(2);
 
             // مرآة لآخر تقييم مكتمل — للعرض والفرز السريع (SRS-F06-04)
             $table->decimal('ai_score', 5, 2)->nullable();   // 0.00–100.00

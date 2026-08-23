@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AgreementController;
 use App\Http\Controllers\Api\AIAgentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\FileController;
@@ -41,6 +42,11 @@ Route::post('/login', [AuthController::class, 'login'])
 
 Route::post('/email/resend', [AuthController::class, 'resendOtp'])
     ->middleware('throttle:api.otp');                                // إعادة إرسال رمز التفعيل · عام · 3/دقيقة
+
+Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
+    ->middleware('throttle:api.otp');                                // SRS-API-04 · RL-AUTH-04 · عام · 3/دقيقة
+// Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
+// عام بلا توكن لأن register لا يُصدر توكن قبل التفعيل (الدستور V · T124/T139)
 
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
     ->middleware('throttle:api.forgot');                             // SRS-API-05 · RL-AUTH-05 · 2/دقيقة · email
@@ -83,6 +89,9 @@ Route::get('/search/suggestions', [SearchController::class, 'suggestions'])
 Route::get('/tags/suggestions', [TagController::class, 'suggestions'])
     ->middleware('throttle:public.browse');                          // SRS-API-49 · L2 · 30/دقيقة
 
+Route::get('/categories', [CategoryController::class, 'index'])
+    ->middleware('throttle:public.browse');                          // SRS-F02-01 · L2 · 30/دقيقة
+
 Route::get('/profile/{user}', [ProfileController::class, 'showPublic'])
     ->middleware('throttle:public.browse');                          // RL-PUB-05 · 30/دقيقة
 
@@ -99,10 +108,6 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     */
     Route::post('/logout', [AuthController::class, 'logout'])
         ->middleware('throttle:api.logout');                         // SRS-API-03 · RL-AUTH-03 · 10/دقيقة · user_id
-
-    Route::post('/email/verify', [AuthController::class, 'verifyEmail'])
-        ->middleware('throttle:api.otp');                            // SRS-API-04 · RL-AUTH-04 · 3/دقيقة · email
-    // Body: {email, code?} — code غائب = إعادة إرسال رمز جديد (UC-01 A2)
 
     // تثبيت الدور بعد أول دخول OAuth — مصادق + role.pending (role = null فقط)
     Route::post('/auth/{provider}/role', [AuthController::class, 'finalizeRole'])
