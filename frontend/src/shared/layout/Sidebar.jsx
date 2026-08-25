@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  CalendarBlank,
   ChartBar,
   Compass,
   FolderPlus,
   PaperPlaneTilt,
   SignOut,
   SquaresFour,
+  Trash,
   Tray,
   UserCircle,
 } from "@phosphor-icons/react";
@@ -31,6 +33,8 @@ export function Sidebar({ role, userName }) {
     { href: "/projects/new", label: t("newProject"), icon: FolderPlus },
     { href: "/projects", label: t("exploreProjects"), icon: Compass },
     { href: "/interests/received", label: t("receivedInterests"), icon: Tray },
+    { href: "/events", label: t("events"), icon: CalendarBlank },
+    { href: "/trash", label: t("trash"), icon: Trash },
   ];
 
   const investorItems = [

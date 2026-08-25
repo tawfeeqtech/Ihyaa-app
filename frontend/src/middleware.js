@@ -19,6 +19,9 @@ const PROTECTED_PREFIXES = [
   "/interests",
   "/agreements",
   "/notifications",
+  // EPIC-10 (US-053/2 · US-055 · T064/T075) — owner activity log + trash.
+  "/events",
+  "/trash",
 ];
 
 /** Dynamic project-edit pages (/projects/{id}/edit) are owner-only. */

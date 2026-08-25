@@ -32,8 +32,10 @@ test.describe("Investor flow", () => {
     // Callback → select-role screen.
     await expect(page.getByRole("heading", { name: t(testInfo, "اختر دورك", "Choose your role") })).toBeVisible();
 
-    // Default role is idea_owner — pick investor.
-    await page.getByRole("radio", { name: t(testInfo, "مستثمر", "Investor") }).click();
+    // Default role is idea_owner — pick investor. Anchor the label match to the
+    // start: the unanchored /مستثمر/ also matches the idea-owner card's
+    // description ("...عرضه على المستثمرين"), which is a strict-mode violation.
+    await page.getByRole("radio", { name: t(testInfo, "^مستثمر", "^Investor") }).click();
     await page.getByRole("button", { name: t(testInfo, "متابعة", "Continue") }).click();
 
     // Lands on the investor dashboard.

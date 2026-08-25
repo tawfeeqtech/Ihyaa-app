@@ -46,6 +46,7 @@ import { useToast } from "@/shared/components/Toast";
 import { projects, sectorLabels, statusLabels } from "@/features/projects/data/projects";
 import { api } from "@/shared/lib/api";
 import { InterestModal } from "@/features/interests/components/InterestModal";
+import { useSavedStatus } from "@/features/projects/hooks/use-saved-status";
 import { avatarHue, cn, initials } from "@/shared/utils";
 
 /**
@@ -92,6 +93,9 @@ export function ProjectDetail({ project }) {
   const viewer = useViewer();
   const authed = viewer.authed;
 
+  // US-059 (T094) — real saved status + toggle backed by the SavedProjects API.
+  const { saved, toggle: toggleSaved } = useSavedStatus(project.id, { authed });
+
   // Disclosure level for the AI report, driven by the backend's `report_access`
   // (none | overall | dimensions | full) — not by the demo auth cookie.
   const reportAccess = project.report_access ?? "none";
@@ -108,7 +112,6 @@ export function ProjectDetail({ project }) {
   const [tab, setTab] = useState("overview");
   const [interestSent, setInterestSent] = useState(false);
   const [interestModalOpen, setInterestModalOpen] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [aiLoading, setAiLoading] = useState(true);
 
   // Translated axis labels for the radar (same order as dimensionKeys).
@@ -362,8 +365,7 @@ export function ProjectDetail({ project }) {
                   router.push("/login");
                   return;
                 }
-                setSaved((s) => !s);
-                toast.success(saved ? t("detail.unsaved") : t("detail.saved"));
+                toggleSaved();
               }}
               aria-pressed={saved}
             >

@@ -128,7 +128,9 @@
     "guest": "زائر",
     "mobileNavigation": "تنقل سريع",
     "adminAnalytics": "التحليلات",
-    "roleAdmin": "مشرف"
+    "roleAdmin": "مشرف",
+    "events": "الأحداث",
+    "trash": "سلة المهملات"
   },
   "auth": {
     "layoutNote": "بمتابعتك أنت توافق على الشروط والأحكام وسياسة الخصوصية",
@@ -705,7 +707,36 @@
       "projectsEmptyDesc": "ارفع مشروعك الأول ودع الذكاء الاصطناعي يقيّمه للمستثمرين",
       "insights": "تطور تقييماتك",
       "insightsNote": "أعمدة توضيحية لمتوسط تقييمات مشاريعك حسب الشهر",
-      "editSoon": "صفحة التعديل ستتوفر مع ربط الـ Backend"
+      "editSoon": "صفحة التعديل ستتوفر مع ربط الـ Backend",
+      "projectsLabel": "مشاريعي",
+      "badgePublished": "منشور",
+      "kpis": {
+        "totalProjects": "عدد المشاريع",
+        "averageScore": "متوسط التقييم",
+        "totalRequests": "طلبات الاهتمام الواردة",
+        "acceptedRequests": "الطلبات المقبولة",
+        "average_score_excludes_incomplete": "يشمل المشاريع المقيَّمة فقط — تُستبعد غير المكتملة أو الفاشلة"
+      },
+      "aiState": {
+        "completed": "تقييم AI",
+        "processing": "جاري التقييم",
+        "failed": "فشل التقييم",
+        "null": "غير مقيَّم",
+        "retry": "إعادة التقييم"
+      },
+      "feed": {
+        "title": "أحدث الأحداث",
+        "viewAll": "عرض كل الأحداث",
+        "empty": "لا توجد أحداث بعد",
+        "emptyDesc": "عندما يُبدي مستثمر اهتمامه بمشروعك أو يكتمل تقييم، ستظهر الأحداث هنا"
+      },
+      "quickActions": {
+        "addProject": "إضافة مشروع جديد",
+        "viewAll": "عرض كل المشاريع",
+        "manageRequests": "إدارة الطلبات"
+      },
+      "viewReport": "عرض تقرير التقييم",
+      "addFirstProject": "أضف أول مشروع"
     },
     "investor": {
       "title": "لوحة المستثمر",
@@ -744,7 +775,46 @@
       "prefBudget": "نطاق الميزانية",
       "savePrefs": "حفظ التفضيلات",
       "prefSaved": "تم حفظ تفضيلاتك — ستُخصص اقتراحات الاستكشاف",
-      "prefsNote": "تُستخدم تفضيلاتك لتخصيص صفحة الاستكشاف (المطابقة الذكية الكاملة في v1.1)"
+      "prefsNote": "تُستخدم تفضيلاتك لتخصيص صفحة الاستكشاف (المطابقة الذكية الكاملة في v1.1)",
+      "loadError": "تعذّر تحميل لوحة المستثمر",
+      "kpis": {
+        "sent_requests": "طلبات مرسلة",
+        "accepted_requests": "طلبات مقبولة",
+        "followed_projects": "مشاريع متابعة"
+      },
+      "suggestionsTitle": "اقتراحات لك",
+      "suggestionsEmpty": "لا توجد اقتراحات متاحة",
+      "suggestionsEmptyDesc": "عندما تظهر مشاريع جديدة مناسبة سنعرضها هنا",
+      "profileIncompleteTitle": "أكمل ملفك الشخصي للحصول على اقتراحات أفضل",
+      "profileIncompleteDesc": "حدد قطاعاتك المفضلة ونطاق ميزانيتك لتحسين نتائج الاستكشاف",
+      "profileIncompleteCta": "إكمال الملف الشخصي",
+      "sentInterestsTitle": "طلبات الاهتمام المرسلة",
+      "sentInterestsEmpty": "لم تُرسل أي اهتمامات بعد",
+      "sentInterestsEmptyDesc": "اضغط زر «أنا مهتم» في أي مشروع لتظهر طلباتك هنا",
+      "noRejectionReason": "لم يحدد صاحب المشروع سبباً",
+      "cancelInterest": "إلغاء الطلب",
+      "cancelSuccess": "تم إلغاء طلب الاهتمام",
+      "cancelFailed": "تعذّر إلغاء الطلب",
+      "viewAgreement": "عرض الاتفاقية",
+      "viewAgreementFailed": "تعذّر تحميل الاتفاقية",
+      "savedProjectsTitle": "المشاريع المحفوظة",
+      "savedProjectsEmpty": "لا توجد مشاريع محفوظة",
+      "savedProjectsEmptyDesc": "احفظ المشاريع التي تهمك للمقارنة لاحقاً",
+      "savedBrowse": "تصفح المشاريع",
+      "savedRemoved": "أُزيل المشروع من المحفوظات",
+      "savedRemovedFailed": "تعذّرت إزالة المشروع من المحفوظات",
+      "unavailableBadge": "هذا المشروع غير متاح حالياً",
+      "updatesTitle": "تحديثات مشاريعك المتابعة",
+      "updatesEmpty": "لا توجد تحديثات بعد",
+      "updatesEmptyDesc": "احفظ مشاريع أو أرسل طلبات اهتمام لمتابعتها — ستظهر هنا أي تغييرات على تقييماتها أو محتواها",
+      "updatesEmptyCta": "اكتشف مشاريع جديدة",
+      "update": {
+        "evaluation_updated": "تغيّرت درجة التقييم من {old} إلى {new}",
+        "project_edited": "حدّث صاحب المشروع بياناته"
+      },
+      "score": "التقييم",
+      "badgeInterestSent": "تم إرسال طلب",
+      "badgeSaved": "محفوظ"
     }
   },
   "interests": {
@@ -771,6 +841,7 @@
     "status": {
       "pending": "معلق",
       "accepted": "مقبول",
+      "accepted_pending_document": "مقبول بانتظار المستند",
       "rejected": "مرفوض",
       "cancelled": "ملغي"
     },
@@ -1031,6 +1102,52 @@
       "count": "العدد",
       "total": "الإجمالي",
       "emptyNote": "لا توجد طلبات اهتمام حتى الآن"
+    }
+  },
+  "trash": {
+    "title": "سلة المهملات",
+    "subtitle": "المشاريع المحذوفة تبقى هنا 30 يوماً ثم تُحذف نهائياً",
+    "empty": "سلة المهملات فارغة",
+    "emptyDesc": "المشاريع التي تحذفها ستنتقل إلى هنا ويمكنك استرجاعها خلال 30 يوماً",
+    "restore": "استرجاع",
+    "restored": "تم استرجاع المشروع",
+    "restoreFailed": "تعذّر استرجاع المشروع",
+    "deleteForever": "حذف نهائي",
+    "forceDeleted": "تم حذف المشروع نهائياً",
+    "forceDeleteFailed": "تعذّر الحذف النهائي",
+    "confirmForceTitle": "حذف نهائي للمشروع؟",
+    "confirmForceBody": "لا يمكن التراجع عن هذا الإجراء. سيُحذف المشروع وملفاته نهائياً.",
+    "confirmForceConfirm": "نعم، احذف نهائياً",
+    "confirmForceCancel": "إلغاء",
+    "daysLeftOne": "متبقي يوم واحد",
+    "daysLeftTwo": "متبقي يومان",
+    "daysLeftFew": "متبقي {count} أيام",
+    "daysLeftMany": "متبقي {count} يوماً",
+    "purgeSoon": "الحذف النهائي وشيك",
+    "notRestorable": "انتهت مهلة الاسترجاع",
+    "backToDashboard": "العودة إلى اللوحة"
+  },
+  "events": {
+    "title": "الأحداث",
+    "subtitle": "سجل نشاطك الكامل — طلبات الاهتمام ونتائج التقييم وتحديثات المشاريع",
+    "empty": "لا توجد أحداث بعد",
+    "emptyDesc": "عندما يُبدي مستثمر اهتمامه بمشروعك أو يكتمل تقييمك، ستظهر الأحداث هنا",
+    "loadError": "تعذّر تحميل الأحداث",
+    "pagination": "ترقيم صفحات الأحداث",
+    "prev": "السابق",
+    "next": "التالي",
+    "genericTitle": "إشعار",
+    "types": {
+      "interest_received": "اهتمام جديد",
+      "interest_accepted": "تم قبول الاهتمام",
+      "interest_rejected": "تم رفض الاهتمام",
+      "interest_cancelled": "تم إلغاء الاهتمام",
+      "evaluation_completed": "اكتمل التقييم",
+      "evaluation_failed": "فشل التقييم",
+      "project_edited": "تم تعديل المشروع",
+      "project_trashed": "تم نقل المشروع إلى السلة",
+      "analysis_completed": "اكتمل التحليل",
+      "generic": "إشعار"
     }
   }
 }

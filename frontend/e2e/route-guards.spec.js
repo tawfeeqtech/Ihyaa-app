@@ -13,6 +13,7 @@ const { test, expect } = require("@playwright/test");
 const {
   appPath,
   lang,
+  t,
   addAuthCookies,
   mockOwnerDashboard,
   mockInvestorDashboard,
@@ -21,17 +22,18 @@ const {
 test.describe("Route guards", () => {
   test("guest is sent to login with next for /dashboard/owner", async ({ page }, testInfo) => {
     await page.goto(appPath(testInfo, "/dashboard/owner"));
-    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=/dashboard/owner`));
+    // The middleware encodes the next path: ?next=%2Fdashboard%2Fowner.
+    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=%2Fdashboard%2Fowner`));
   });
 
   test("guest is sent to login with next for /projects/new", async ({ page }, testInfo) => {
     await page.goto(appPath(testInfo, "/projects/new"));
-    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=/projects/new`));
+    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=%2Fprojects%2Fnew`));
   });
 
   test("guest is sent to login for /profile (protected prefix)", async ({ page }, testInfo) => {
     await page.goto(appPath(testInfo, "/profile"));
-    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=/profile`));
+    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/login\\?next=%2Fprofile`));
   });
 
   test("idea owner cannot open the investor dashboard (US-006)", async ({ page }, testInfo) => {
@@ -39,7 +41,13 @@ test.describe("Route guards", () => {
     await mockOwnerDashboard(page);
 
     await page.goto(appPath(testInfo, "/dashboard/investor"));
-    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/dashboard/owner\\?error=unauthorized_role`));
+    // DashboardErrorToast strips ?error=unauthorized_role via history.replaceState
+    // after surfacing the toast, so accept the URL with or without the param.
+    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/dashboard/owner(\\?error=unauthorized_role)?$`));
+    // The toast renders into two <role=status> regions — assert the first.
+    await expect(
+      page.getByText(t(testInfo, "ليس لديك صلاحية الوصول إلى هذه الصفحة", "You do not have permission to access this page")).first()
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: /لوحة صاحب الفكرة|Idea owner dashboard/ })
     ).toBeVisible();
@@ -50,7 +58,12 @@ test.describe("Route guards", () => {
     await mockInvestorDashboard(page);
 
     await page.goto(appPath(testInfo, "/dashboard/owner"));
-    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/dashboard/investor\\?error=unauthorized_role`));
+    // Same param-strip caveat as the owner test above.
+    await expect(page).toHaveURL(new RegExp(`/${lang(testInfo)}/dashboard/investor(\\?error=unauthorized_role)?$`));
+    // Same two-status-region caveat as the owner test above.
+    await expect(
+      page.getByText(t(testInfo, "ليس لديك صلاحية الوصول إلى هذه الصفحة", "You do not have permission to access this page")).first()
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: /لوحة المستثمر|Investor dashboard/ })
     ).toBeVisible();

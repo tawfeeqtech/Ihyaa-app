@@ -71,6 +71,8 @@ class AppServiceProvider extends ServiceProvider
         // ---------------- L4: مستثمر ----------------
         RateLimiter::for('investor.read', fn (Request $r) => Limit::perMinute(120)->by($r->user()?->id ?: $r->ip()));
         RateLimiter::for('investor.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));
+        // saved-projects-api.md §0 — حفظ/إزالة المحفوظات: 30/دقيقة (POST/DELETE)
+        RateLimiter::for('investor.saved', fn (Request $r) => Limit::perMinute(30)->by($r->user()?->id ?: $r->ip())); // RL-INV-07/08
 
         // ---------------- L5: العمليات المكلفة (AI + رفع) ----------------
         // RL-AI-01 · user+project — throttle يسبق ربط النموذج، لذا route('project') قد يكون
@@ -99,7 +101,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute($limit)->by($user?->id ?: $r->ip());
         });
         RateLimiter::for('shared.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));
-        RateLimiter::for('dashboard', fn (Request $r) => Limit::perMinute(20)->by($r->user()?->id ?: $r->ip()));                // RL-IO-09/RL-INV-09
+        // dashboard-api.md §0 · trash-api.md §0 — 60/دقيقة للوحات، 30/10 للمهملات.
+        RateLimiter::for('dashboard', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));                // RL-IO-09/RL-INV-09 · dashboard-api.md §0
+        RateLimiter::for('trash.read', fn (Request $r) => Limit::perMinute(30)->by($r->user()?->id ?: $r->ip()));                // RL-IO-10 · trash-api.md §0 · 30/دقيقة
+        RateLimiter::for('trash.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));               // RL-IO-11/12 · trash-api.md §0 · 10/دقيقة
 
         // ---------------- EPIC-09: الإشعارات (RL-SH-05..08 · tasks.md T008/T067) ----------------
         RateLimiter::for('notifications.read', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));     // RL-SH-05/06 · 60/دقيقة

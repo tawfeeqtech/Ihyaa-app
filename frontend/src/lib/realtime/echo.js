@@ -21,6 +21,9 @@ import { api, API_BASE_URL, AUTH_COOKIE } from "@/shared/lib/api";
 import { unreadStore } from "@/features/notifications/store/unreadStore";
 import { mapApiNotification } from "@/features/notifications/lib/notifications";
 
+/** EPIC-10 (T065) — optional critical-event subscribers (e.g. the events feed). */
+const criticalListeners = new Set();
+
 const REVERB_APP_KEY =
   process.env.NEXT_PUBLIC_REVERB_APP_KEY ?? "ZtS9oIt1sa00q9z69H09OOefdCgnxE2jBZoLulcY98Y=";
 const REVERB_HOST = process.env.NEXT_PUBLIC_REVERB_HOST ?? "127.0.0.1";
@@ -74,11 +77,24 @@ export async function getRealtime() {
   channel.stopListening("notification.received");
   channel.listen("notification.received", (payload) => {
     if (payload?.notification) {
-      unreadStore.receive(mapApiNotification(payload.notification));
+      const notification = mapApiNotification(payload.notification);
+      unreadStore.receive(notification);
+      // EPIC-10 (T065) — fan out to the dashboard events feed store.
+      for (const cb of criticalListeners) cb(notification);
     }
   });
 
   return echo;
+}
+
+/**
+ * Register a callback invoked for every critical broadcast (`notification.received`).
+ * Returns an unsubscribe function. Consumers (the dashboard events feed) use this
+ * instead of reaching into the private channel themselves.
+ */
+export function onCriticalEvent(callback) {
+  criticalListeners.add(callback);
+  return () => criticalListeners.delete(callback);
 }
 
 /** Disconnect the underlying connection (used on logout / tests). */

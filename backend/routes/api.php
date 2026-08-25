@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SavedProjectController;
+use App\Http\Controllers\Api\SavedProjectsController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\TrashController;
@@ -185,16 +186,16 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
         |----------------------------------------------------------------------
         */
         Route::get('/trashed-projects', [TrashController::class, 'index'])
-            ->middleware('throttle:shared.read');                    // RL-IO-10 · 20/دقيقة
+            ->middleware('throttle:trash.read');                     // RL-IO-10 · trash-api.md §0 · 30/دقيقة
 
         // withTrashed: ربط المشاريع المحذوفة ناعماً (سلة المهملات)
         Route::post('/trashed-projects/{project}/restore', [TrashController::class, 'restore'])
             ->withTrashed()
-            ->middleware('throttle:shared.write');                   // RL-IO-11 · 10/دقيقة
+            ->middleware('throttle:trash.write');                    // RL-IO-11 · trash-api.md §0 · 10/دقيقة
 
         Route::delete('/trashed-projects/{project}/force', [TrashController::class, 'forceDelete'])
             ->withTrashed()
-            ->middleware('throttle:shared.write');                   // RL-IO-12 · 10/دقيقة
+            ->middleware('throttle:trash.write');                    // RL-IO-12 · trash-api.md §0 · 10/دقيقة
 
         /*
         | L5 — وكيل AI: تحليل المشاريع (Idea Owner — مالك المشروع)
@@ -227,13 +228,17 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
             ->withTrashed()
             ->middleware('throttle:investor.write');                 // RL-INV-04 · 10/دقيقة
 
-        Route::post('/projects/{project}/save', [SavedProjectController::class, 'save'])
-            ->middleware('throttle:investor.write');                 // RL-INV-07 · 10/دقيقة
+        // withoutTrashed في DELETE: المشروع المحذوف soft يبقى قابلاً للإزالة من
+        // المحفوظات (saved-projects-api.md §3 — available:false + زر إزالة يعمل).
+        // أما POST بلا withTrashed → مشروع soft-deleted يُرجع 404 (contract §2).
+        Route::post('/projects/{project}/save', [SavedProjectsController::class, 'store'])
+            ->middleware('throttle:investor.saved');                 // RL-INV-07 · 30/دقيقة (saved-projects-api §0)
 
-        Route::delete('/projects/{project}/save', [SavedProjectController::class, 'unsave'])
-            ->middleware('throttle:investor.write');                 // RL-INV-08 · 10/دقيقة
+        Route::delete('/projects/{project}/save', [SavedProjectsController::class, 'destroy'])
+            ->withTrashed()
+            ->middleware('throttle:investor.saved');                 // RL-INV-08 · 30/دقيقة
 
-        Route::get('/saved-projects', [SavedProjectController::class, 'index'])
+        Route::get('/saved-projects', [SavedProjectsController::class, 'index'])
             ->middleware('throttle:shared.read');                    // RL-INV-06 · 60/دقيقة
     });
 
@@ -272,7 +277,8 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     Route::put('/interests/{interest}/reject', [InterestController::class, 'reject'])
         ->middleware('throttle:shared.write');                       // RL-SH-03 · 10/دقيقة (IO — مالك المشروع)
 
-    Route::post('/interests/{interest}/cancel', [InterestController::class, 'cancel'])
+    // T089: PUT بدل POST — dashboard-api.md §3 (UC-07 E2 · Investor)
+    Route::put('/interests/{interest}/cancel', [InterestController::class, 'cancel'])
         ->middleware('throttle:shared.write');                       // UC-07 E2 (Investor)
 
     Route::get('/agreements/{agreement}', [AgreementController::class, 'show'])

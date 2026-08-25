@@ -128,7 +128,9 @@
     "guest": "Guest",
     "mobileNavigation": "Quick navigation",
     "adminAnalytics": "Analytics",
-    "roleAdmin": "Admin"
+    "roleAdmin": "Admin",
+    "events": "Events",
+    "trash": "Trash"
   },
   "auth": {
     "layoutNote": "By continuing you agree to our Terms of Service and Privacy Policy",
@@ -705,7 +707,36 @@
       "projectsEmptyDesc": "Upload your first project and let AI evaluate it for investors",
       "insights": "Your scores over time",
       "insightsNote": "Illustrative bars of your projects' average scores per month",
-      "editSoon": "The edit page will be available once the backend is connected"
+      "editSoon": "The edit page will be available once the backend is connected",
+      "projectsLabel": "My projects",
+      "badgePublished": "Published",
+      "kpis": {
+        "totalProjects": "Total projects",
+        "averageScore": "Average score",
+        "totalRequests": "Interests received",
+        "acceptedRequests": "Accepted requests",
+        "average_score_excludes_incomplete": "Only evaluated projects count — incomplete or failed ones are excluded"
+      },
+      "aiState": {
+        "completed": "AI score",
+        "processing": "Evaluating…",
+        "failed": "Evaluation failed",
+        "null": "Not evaluated",
+        "retry": "Re-evaluate"
+      },
+      "feed": {
+        "title": "Latest activity",
+        "viewAll": "View all events",
+        "empty": "No events yet",
+        "emptyDesc": "When an investor shows interest in your project or an evaluation completes, events will appear here"
+      },
+      "quickActions": {
+        "addProject": "Add new project",
+        "viewAll": "View all projects",
+        "manageRequests": "Manage requests"
+      },
+      "viewReport": "View evaluation report",
+      "addFirstProject": "Add your first project"
     },
     "investor": {
       "title": "Investor dashboard",
@@ -744,7 +775,46 @@
       "prefBudget": "Budget range",
       "savePrefs": "Save preferences",
       "prefSaved": "Preferences saved — discover suggestions will be personalized",
-      "prefsNote": "Your preferences personalize the Discover tab (full AI matching lands in v1.1)"
+      "prefsNote": "Your preferences personalize the Discover tab (full AI matching lands in v1.1)",
+      "loadError": "Could not load the investor dashboard",
+      "kpis": {
+        "sent_requests": "Requests sent",
+        "accepted_requests": "Accepted",
+        "followed_projects": "Followed projects"
+      },
+      "suggestionsTitle": "Suggestions for you",
+      "suggestionsEmpty": "No suggestions available",
+      "suggestionsEmptyDesc": "When new matching projects appear they will show here",
+      "profileIncompleteTitle": "Complete your profile for better suggestions",
+      "profileIncompleteDesc": "Pick your preferred sectors and budget range to improve discovery",
+      "profileIncompleteCta": "Complete profile",
+      "sentInterestsTitle": "Sent interest requests",
+      "sentInterestsEmpty": "No interests sent yet",
+      "sentInterestsEmptyDesc": "Press the “I'm interested” button on any project and your requests will appear here",
+      "noRejectionReason": "The owner did not specify a reason",
+      "cancelInterest": "Cancel request",
+      "cancelSuccess": "Interest request cancelled",
+      "cancelFailed": "Could not cancel the request",
+      "viewAgreement": "View agreement",
+      "viewAgreementFailed": "Could not load the agreement",
+      "savedProjectsTitle": "Saved projects",
+      "savedProjectsEmpty": "No saved projects",
+      "savedProjectsEmptyDesc": "Save projects you care about to compare them later",
+      "savedBrowse": "Browse projects",
+      "savedRemoved": "Project removed from saved",
+      "savedRemovedFailed": "Could not remove the project from saved",
+      "unavailableBadge": "This project is currently unavailable",
+      "updatesTitle": "Updates on your followed projects",
+      "updatesEmpty": "No updates yet",
+      "updatesEmptyDesc": "Save projects or send interest requests to follow them — any changes to their scores or content will appear here",
+      "updatesEmptyCta": "Discover new projects",
+      "update": {
+        "evaluation_updated": "Evaluation score changed from {old} to {new}",
+        "project_edited": "The owner updated this project"
+      },
+      "score": "Score",
+      "badgeInterestSent": "Request sent",
+      "badgeSaved": "Saved"
     }
   },
   "interests": {
@@ -771,6 +841,7 @@
     "status": {
       "pending": "Pending",
       "accepted": "Accepted",
+      "accepted_pending_document": "Accepted, document pending",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
     },
@@ -1031,6 +1102,52 @@
       "count": "Count",
       "total": "Total",
       "emptyNote": "No interest requests yet"
+    }
+  },
+  "trash": {
+    "title": "Trash",
+    "subtitle": "Deleted projects stay here for 30 days, then are permanently deleted",
+    "empty": "Trash is empty",
+    "emptyDesc": "Projects you delete will move here and can be restored within 30 days",
+    "restore": "Restore",
+    "restored": "Project restored",
+    "restoreFailed": "Could not restore project",
+    "deleteForever": "Delete forever",
+    "forceDeleted": "Project permanently deleted",
+    "forceDeleteFailed": "Could not permanently delete project",
+    "confirmForceTitle": "Delete this project forever?",
+    "confirmForceBody": "This action cannot be undone. The project and its files will be permanently deleted.",
+    "confirmForceConfirm": "Yes, delete forever",
+    "confirmForceCancel": "Cancel",
+    "daysLeftOne": "1 day left",
+    "daysLeftTwo": "2 days left",
+    "daysLeftFew": "{count} days left",
+    "daysLeftMany": "{count} days left",
+    "purgeSoon": "Permanent deletion imminent",
+    "notRestorable": "Recovery window expired",
+    "backToDashboard": "Back to dashboard"
+  },
+  "events": {
+    "title": "Events",
+    "subtitle": "Your full activity log — interest requests, evaluation results and project updates",
+    "empty": "No events yet",
+    "emptyDesc": "When an investor shows interest or your evaluation completes, events will appear here",
+    "loadError": "Failed to load events",
+    "pagination": "Events pagination",
+    "prev": "Previous",
+    "next": "Next",
+    "genericTitle": "Notification",
+    "types": {
+      "interest_received": "New interest",
+      "interest_accepted": "Interest accepted",
+      "interest_rejected": "Interest rejected",
+      "interest_cancelled": "Interest cancelled",
+      "evaluation_completed": "Evaluation complete",
+      "evaluation_failed": "Evaluation failed",
+      "project_edited": "Project edited",
+      "project_trashed": "Project moved to trash",
+      "analysis_completed": "Analysis complete",
+      "generic": "Notification"
     }
   }
 }

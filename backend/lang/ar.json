@@ -83,6 +83,11 @@
     "saved.saved": "تم حفظ المشروع",
     "saved.removed": "تمت إزالة المشروع من المحفوظات",
     "saved.not_published": "المشروع غير منشور — لا يمكن حفظه",
+    "saved.already_saved": "المشروع محفوظ مسبقاً",
+    "saved.not_found": "هذا المشروع غير متاح أو تم حذفه",
+
+    "dashboard.evaluation_updated": "تحديث التقييم: :old ← :new",
+    "dashboard.project_edited": "تم تحديث وصف المشروع والميزانية",
 
     "trash.not_trashed": "المشروع ليس في سلة المهملات",
     "trash.expired": "انتهت مدة الاسترجاع (30 يوماً) — يمكن الحذف النهائي فقط",

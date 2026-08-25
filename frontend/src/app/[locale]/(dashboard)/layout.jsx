@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }) {
     <div className="flex min-h-screen flex-col">
       <Header hideAuthActions={authed} />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:px-8">
         {/* Mobile quick-nav (sidebar is desktop-only) */}
         {authed && (
           <nav
@@ -42,6 +42,8 @@ export default async function DashboardLayout({ children }) {
                 receivedInterests: t("receivedInterests"),
                 sentInterests: t("sentInterests"),
                 adminAnalytics: t("adminAnalytics"),
+                events: t("events"),
+                trash: t("trash"),
               }}
             />
           </nav>
@@ -99,6 +101,22 @@ function SidebarMobileLinks({ role, labels }) {
       >
         {role === "investor" ? labels.sentInterests : labels.receivedInterests}
       </Link>
+      {role !== "investor" && (
+        <>
+          <Link
+            href="/events"
+            className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+          >
+            {labels.events}
+          </Link>
+          <Link
+            href="/trash"
+            className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+          >
+            {labels.trash}
+          </Link>
+        </>
+      )}
     </>
   );
 }

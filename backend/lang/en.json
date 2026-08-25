@@ -83,6 +83,11 @@
     "saved.saved": "Project saved",
     "saved.removed": "Project removed from saved",
     "saved.not_published": "Project is not published — cannot save",
+    "saved.already_saved": "Project already saved",
+    "saved.not_found": "This project is unavailable or has been deleted",
+
+    "dashboard.evaluation_updated": "Evaluation updated: :old ← :new",
+    "dashboard.project_edited": "Project description and budget updated",
 
     "trash.not_trashed": "Project is not in the trash",
     "trash.expired": "Recovery period (30 days) ended — force delete only",

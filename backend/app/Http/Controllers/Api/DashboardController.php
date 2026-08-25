@@ -3,145 +3,46 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\EvaluationStatus;
-use App\Enums\InterestStatus;
 use App\Models\Evaluation;
 use App\Models\Category;
 use App\Models\Interest;
-use App\Models\Notification;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\Dashboard\IdeaOwnerDashboardService;
+use App\Services\Dashboard\InvestorDashboardService;
 use App\Support\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * لوحات التحكم — SRS-API-38/39 · 20/دقيقة (throttle:dashboard).
- * idea-owner: مشاريعي + طلبات الاهتمام + تاريخ التقييمات + آخر 10 أحداث.
+ * لوحات التحكم — SRS-API-38/39 · 60/دقيقة (throttle:dashboard · dashboard-api.md §0).
+ * idea-owner: kpis + مشاريع (بطاقات مصغرة بحالة AI) + آخر 10 أحداث (US-051..053).
  * investor: المحفوظات + الطلبات المرسلة + مشاريع مقترحة (حتى 10).
  */
 class DashboardController
 {
     use ApiResponse;
 
-    /** RL-IO-09 · 20/دقيقة */
-    public function ideaOwner(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $projectStats = [
-            'total' => $user->projects()->count(),
-            'published' => $user->projects()->where('publication_status', 'published')->count(),
-            'drafts' => $user->projects()->where('publication_status', 'draft')->count(),
-            'archived' => $user->projects()->where('publication_status', 'archived')->count(),
-            'trashed' => $user->projects()->onlyTrashed()->count(),
-        ];
-
-        // قائمة مشاريع المالك (كل الحالات: draft/published/archived) — لجدول "مشاريعي"
-        // وتمكين دورة الحفظ كمسودة ← عرض ← استكمال/تعديل. مضافة إلى toCardArray فقط
-        // دون تعديل الدالة نفسها حتى لا يتأثر المعرض العام.
-        $projects = $user->projects()
-            ->with(['category', 'files' => fn ($q) => $q->where('type', 'image')])
-            ->orderByDesc('updated_at')
-            ->get()
-            ->map(fn (Project $p) => array_merge($p->toCardArray(), [
-                'publication_status' => $p->publication_status?->value,
-                'updated_at' => $p->updated_at?->toISOString(),
-            ]));
-
-        $interests = $user->interestsReceived();
-
-        $interestStats = [
-            'total' => (clone $interests)->count(),
-            'pending' => (clone $interests)->where('interests.status', InterestStatus::PENDING)->count(),
-            'accepted' => (clone $interests)->where('interests.status', InterestStatus::ACCEPTED)->count(),
-            'rejected' => (clone $interests)->where('interests.status', InterestStatus::REJECTED)->count(),
-        ];
-
-        // تاريخ التقييمات (آخر 5 مكتملة للمقارنة — SRS-DB-05)
-        $evaluations = $user->projects()
-            ->whereHas('evaluations', fn ($q) => $q->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL]))
-            ->with(['evaluations' => fn ($q) => $q->whereIn('status', [EvaluationStatus::COMPLETED, EvaluationStatus::PARTIAL])->orderByDesc('version')])
-            ->get()
-            ->flatMap->evaluations
-            ->sortByDesc('created_at')
-            ->take(5)
-            ->values()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'project_id' => $e->project_id,
-                'project_title' => $e->project->title ?? null,
-                'version' => $e->version,
-                'overall_score' => $e->overall_score,
-                'status' => $e->status->value,
-                'evaluated_at' => $e->created_at?->toISOString(),
-            ]);
-
-        // آخر 10 أحداث (تغذية اللوحة — SRS-API-38)
-        $recentEvents = $user->notifications()
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get()
-            ->map(fn (Notification $n) => [
-                'id' => $n->id,
-                'type' => $n->type,
-                'title' => $n->title,
-                'body' => $n->body,
-                'data' => $n->data,
-                'created_at' => $n->created_at?->toISOString(),
-            ]);
-
-        return $this->success([
-            'project_stats' => $projectStats,
-            'interest_stats' => $interestStats,
-            'projects' => $projects,
-            'recent_evaluations' => $evaluations,
-            'recent_events' => $recentEvents,
-            'unread_notifications' => $user->notifications()->unread()->count(),
-        ]);
+    public function __construct(
+        private readonly IdeaOwnerDashboardService $dashboard,
+        private readonly InvestorDashboardService $investorDashboard,
+    ) {
     }
 
-    /** RL-INV-09 · 20/دقيقة */
+    /** RL-IO-09 · 60/دقيقة — dashboard-api.md §1 */
+    public function ideaOwner(Request $request): JsonResponse
+    {
+        return $this->success(
+            $this->dashboard->dataFor($request->user()),
+        );
+    }
+
+    /** RL-INV-09 · 20/دقيقة — dashboard-api.md §2 (US-057..060) */
     public function investor(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        $sent = $user->interestsSent();
-
-        $interestStats = [
-            'total' => (clone $sent)->count(),
-            'pending' => (clone $sent)->where('status', InterestStatus::PENDING)->count(),
-            'accepted' => (clone $sent)->where('status', InterestStatus::ACCEPTED)->count(),
-            'rejected' => (clone $sent)->where('status', InterestStatus::REJECTED)->count(),
-        ];
-
-        $savedCount = $user->savedProjects()->count();
-
-        // مشاريع مقترحة — حتى 10 بأعلى تقييم (SRS-API-39)
-        $suggested = Project::query()
-            ->with(['category'])
-            ->published()
-            ->where('ai_score', '>=', 60)
-            ->orderByDesc('ai_score')
-            ->limit(10)
-            ->get()
-            ->map->toCardArray();
-
-        $recentInterests = $sent
-            ->with(['project.category'])
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get()
-            ->map(fn (Interest $i) => array_merge($i->toApiArray(), [
-                'project' => $i->project?->toCardArray(),
-            ]));
-
-        return $this->success([
-            'interest_stats' => $interestStats,
-            'saved_count' => $savedCount,
-            'suggested_projects' => $suggested,
-            'recent_interests' => $recentInterests,
-            'unread_notifications' => $user->notifications()->unread()->count(),
-        ]);
+        return $this->success(
+            $this->investorDashboard->dataFor($request->user()),
+        );
     }
 
     /** لوحة المشرف — SRS-API-40 (تُستخدم من AdminController) */

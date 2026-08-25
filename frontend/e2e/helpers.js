@@ -213,6 +213,27 @@ async function mockOAuth(page, opts = {}) {
   });
 }
 
+/**
+ * Mock GET /api/me so AuthProvider's boot revalidation does NOT 401-evict the
+ * auth cookies. On the E2E backend the token is synthetic, so a real /me call
+ * returns 401 → AuthProvider clears the session (stale-token eviction, الدستور
+ * V) → the NEXT navigation becomes a guest and bounces to login. Returning a
+ * verified user keeps the restored cookie state intact across navigations.
+ */
+async function mockMe(page, opts = {}) {
+  const {
+    role = "idea_owner",
+    name = "مستخدم تجريبي",
+    email = "user@example.com",
+    emailVerified = true,
+  } = opts;
+  await mockApi(page, "GET", "me", async (route) => {
+    await route.fulfill(
+      jsonResponse(envelope({ id: 1, name, email, role, email_verified: emailVerified }))
+    );
+  });
+}
+
 // ------------------------------------------------------------- Project mocks
 
 /** GET /api/categories → array of { id, slug, name_ar, name_en }. */
@@ -349,9 +370,14 @@ async function mockOwnerDashboard(page, { projects = [] } = {}) {
     await route.fulfill(
       jsonResponse(
         envelope({
-          project_stats: { total: list.length, published: list.length, drafts: 0 },
-          interest_stats: { total: 0, pending: 0, accepted: 0 },
+          kpis: {
+            total_projects: list.length,
+            average_score: 65,
+            total_requests_received: 0,
+            accepted_requests: 0,
+          },
           projects: list,
+          feed: { items: [], has_more: false },
         })
       )
     );
@@ -364,25 +390,38 @@ async function mockOwnerDashboard(page, { projects = [] } = {}) {
   });
 }
 
-/** Investor dashboard endpoints (GET /dashboard/investor + secondary lists). */
-async function mockInvestorDashboard(page, { projects = [] } = {}) {
-  const list = projects.length ? projects : makeDemoProjects(3);
+/**
+ * Investor dashboard aggregate (GET /dashboard/investor — dashboard-api.md §2).
+ *
+ * The new single-fetch dashboard reads ONLY this endpoint: kpis, suggestions,
+ * sent_interests, saved_projects, updates_feed. `projects` seeds the suggestion
+ * cards; pass `overrides` to control kpis / sent_interests / saved_projects /
+ * updates_feed / profile_complete for a specific scenario.
+ */
+async function mockInvestorDashboard(page, { projects = [], overrides = {} } = {}) {
+  const suggestions = (projects.length ? projects : makeDemoProjects(3)).map((p) => ({
+    id: p.id,
+    title: p.title,
+    category: p.category?.name_ar ?? p.category,
+    status: p.state ?? "needs_funding",
+    ai_score: p.ai_score,
+    budget_min: null,
+    budget_max: null,
+    cover_image_url: p.cover_image_url ?? null,
+    engagement_badge: null,
+  }));
+
+  const base = {
+    kpis: { sent_requests: 0, accepted_requests: 0, followed_projects: 0 },
+    profile_complete: true,
+    suggestions,
+    sent_interests: [],
+    saved_projects: [],
+    updates_feed: [],
+  };
+
   await mockApi(page, "GET", "dashboard/investor", async (route) => {
-    await route.fulfill(
-      jsonResponse(
-        envelope({
-          suggested_projects: list,
-          saved_count: 0,
-          interest_stats: { total: 0, pending: 0, accepted: 0 },
-        })
-      )
-    );
-  });
-  await mockApi(page, "GET", "saved-projects", async (route) => {
-    await route.fulfill(jsonResponse({ success: true, message: "ok", data: [], meta: emptyMeta() }));
-  });
-  await mockApi(page, "GET", "interests/sent", async (route) => {
-    await route.fulfill(jsonResponse({ success: true, message: "ok", data: [], meta: emptyMeta() }));
+    await route.fulfill(jsonResponse(envelope({ ...base, ...overrides })));
   });
 }
 
@@ -415,6 +454,7 @@ module.exports = {
   mockTagSuggestions,
   mockSearchSuggestions,
   mockProjectCreate,
+  mockMe,
   makeApiProject,
   makeDemoProjects,
   mockProjectsList,

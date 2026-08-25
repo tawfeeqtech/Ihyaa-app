@@ -65,8 +65,18 @@ export async function rejectInterest(id, rejection_reason = "") {
 }
 
 /**
- * DELETE /interests/{interest} — the sending investor only (UC-12 / UC-07 E2).
- * Soft-cancel: the request flips to `cancelled`.
+ * PUT /interests/{interest}/cancel — the sending investor only (UC-12 / UC-07 E2).
+ * Soft-cancel: the request flips to `cancelled`. This is the canonical cancel
+ * route (dashboard-api.md §2.sent_interests.can_cancel); `cancelInterest`
+ * (DELETE) is retained for legacy callers.
+ */
+export async function cancelSentInterest(id) {
+  return api.put(`/interests/${id}/cancel`, {});
+}
+
+/**
+ * DELETE /interests/{interest} — legacy cancel for the sending investor.
+ * Prefer `cancelSentInterest` (PUT) — the DELETE route is deprecated.
  */
 export async function cancelInterest(id) {
   return api.delete(`/interests/${id}`);
