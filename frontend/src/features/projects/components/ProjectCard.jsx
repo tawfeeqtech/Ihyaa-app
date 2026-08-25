@@ -21,7 +21,9 @@ export function ProjectCard({ project, noBookmark = false }) {
   const title = locale === "ar" ? project.title.ar : project.title.en;
   const description = locale === "ar" ? project.description.ar : project.description.en;
   const sector = sectorLabels[project.sector];
-  const sectorText = locale === "ar" ? sector.ar : sector.en;
+  const sectorText = locale === "ar"
+    ? (sector?.ar ?? project.sector)
+    : (sector?.en ?? project.sector);
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-primary-600/10">
@@ -79,7 +81,7 @@ export function ProjectCard({ project, noBookmark = false }) {
                 {project.owner.name}
               </p>
               <p className="text-xs text-text-secondary">
-                {t("status", { status: locale === "ar" ? statusLabels[project.status].ar : statusLabels[project.status].en })}
+                {t("status", { status: locale === "ar" ? (statusLabels[project.status]?.ar ?? project.status) : (statusLabels[project.status]?.en ?? project.status) })}
               </p>
             </div>
           </div>
