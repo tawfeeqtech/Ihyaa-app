@@ -16,6 +16,7 @@ import {
   Heart,
   Hourglass,
   Images,
+  LineSegments,
   Link as LinkIcon,
   Lock,
   Users,
@@ -525,6 +526,22 @@ export function ProjectDetail({ project }) {
                           <ArrowsClockwise size={16} weight="bold" aria-hidden />
                           {t("report.reevaluate")}
                         </Button>
+                      </div>
+                    )}
+
+                    {/* AI Agent deep analysis — owner only (EPIC-15 · T117) */}
+                    {isOwner && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-1 px-4 py-3">
+                        <p className="flex items-center gap-2 text-sm text-text-secondary">
+                          <LineSegments size={18} className="shrink-0 text-primary-600" aria-hidden />
+                          {t("report.analysisHint")}
+                        </p>
+                        <Link href={`/projects/${project.id}/analysis`}>
+                          <Button variant="outline" size="sm">
+                            <LineSegments size={16} weight="bold" aria-hidden />
+                            {t("report.analysisLink")}
+                          </Button>
+                        </Link>
                       </div>
                     )}
 

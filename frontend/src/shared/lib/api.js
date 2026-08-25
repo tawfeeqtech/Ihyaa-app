@@ -87,12 +87,19 @@ async function request(path, options = {}) {
   // resolves to { token, token_expires_at, user }.
   //
   // Paginated responses additionally carry a top-level `meta` object
-  // ({ current_page, per_page, total, last_page, ... }). Preserve it so
-  // callers can read both `res.data` (the items) and `res.meta` (pagination).
+  // ({ current_page, per_page, total, last_page, ... }) plus optional extras
+  // such as `counters` (interest boards). Preserve them all so callers can read
+  // `res.data` (items), `res.meta` (pagination) and `res.counters` — the
+  // InterestController merges these via the `success($data, $msg, $status, $meta)`
+  // helper, which flattens the extra array at the top level.
   // Endpoints without `meta` keep unwrapping to just `data` for backward
   // compatibility.
   if (body && typeof body === "object" && "data" in body) {
-    return "meta" in body ? { data: body.data, meta: body.meta } : body.data;
+    if ("meta" in body) {
+      const { success, message, data, meta, ...extras } = body;
+      return { data, meta, ...extras };
+    }
+    return body.data;
   }
   return body;
 }
@@ -125,7 +132,11 @@ async function uploadRequest(path, formData, options = {}) {
   }
 
   if (body && typeof body === "object" && "data" in body) {
-    return "meta" in body ? { data: body.data, meta: body.meta } : body.data;
+    if ("meta" in body) {
+      const { success, message, data, meta, ...extras } = body;
+      return { data, meta, ...extras };
+    }
+    return body.data;
   }
   return body;
 }

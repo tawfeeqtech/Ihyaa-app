@@ -58,6 +58,29 @@ class AiGateway
         ];
     }
 
+    /**
+     * تحليل منظم (JSON) عبر مزودي النماذج الحاليين — EPIC-15 (T107/T111).
+     *
+     * يُعيد استجابة JSON مُحلَّلة من OpenAI (أساسي) ← Claude (احتياطي) عبر chat()
+     * مع مفتاح _model_used. في وضع Mock يُعيد بنية حتمية صالحة للمخطط لكل نوع.
+     *
+     * @return array<string, mixed>
+     */
+    public function analyzeStructured(string $type, string $prompt): array
+    {
+        if (config('ai.mock')) {
+            return $this->mockStructured($type);
+        }
+
+        $response = $this->chat($prompt, jsonMode: true);
+
+        if (is_string($response)) {
+            throw new RuntimeException('استجابة النموذج ليست JSON صالحاً');
+        }
+
+        return $response;
+    }
+
     // ——————————————————————— مزودو النماذج ———————————————————————
 
     /**
@@ -246,6 +269,76 @@ class AiGateway
             'confidence' => 0.72,
             'model_used' => 'openai',
         ];
+    }
+
+    /**
+     * بنية منظمة حتمية (Mock) لتحليل SWOT/التنافسي — EPIC-15.
+     * صالحة للمخطط (≥4 لكل فئة SWOT · ≥3 توصيات · مفاتيح competitive كاملة).
+     */
+    protected function mockStructured(string $type): array
+    {
+        return match ($type) {
+            'swot' => [
+                'summary' => 'تحليل SWOT شامل معتمد على آخر تقييم رسمي للمشروع.',
+                'strengths' => [
+                    'قيمة مقترحة واضحة ومحددة',
+                    'استخدام الذكاء الاصطناعي في التقييم والتحليل',
+                    'استهداف سوق الشرق الأوسط النامي',
+                    'فريق يتمتع بتنوع في المهارات التقنية',
+                ],
+                'weaknesses' => [
+                    'قنوات توزيع محدودة في البداية',
+                    'الاعتماد على بيانات خارجية لتغذية النموذج',
+                    'نقص خبرة تسويقية موثقة',
+                    'حاجة إلى تحسين التوثيق والبيانات',
+                ],
+                'opportunities' => [
+                    'نمو سوق رأس المال الجريء في المنطقة',
+                    'شراكات مع الجامعات والمسرعات',
+                    'التوسع الجغرافي نحو الإمارات ومصر',
+                    'إضافة فئة المستقلين بعد الإطلاق',
+                ],
+                'threats' => [
+                    'دخول منصات عالمية كبرى إلى السوق',
+                    'تقلبات اقتصادية تؤثر على الاستثمار',
+                    'مخاطر دقة التقييم الآلي',
+                    'منافسة محلية ناشئة',
+                ],
+                'recommendations' => [
+                    'التركيز على السوق السعودي أولاً',
+                    'بناء شراكات استراتيجية مع الجامعات',
+                    'تحسين عملية جمع البيانات ومراجعتها',
+                ],
+                'derived_from' => ['last_evaluation'],
+                '_model_used' => 'openai',
+            ],
+            'competitive' => [
+                'competitive_advantage' => [
+                    'نظام تقييم AI شفاف ومكوّن من خمسة أبعاد',
+                    'تركيز حصري على السوق العربي (RTL كامل)',
+                    'سرعة معالجة التحليلات مع تقارير مخصصة',
+                ],
+                'differentiators' => [
+                    'تحليل SWOT ومقارنة تنافسية تلقائية',
+                    'دعم كامل للغة العربية',
+                    'نصوص/قوالب فقط بلا التزامات خارجية في MVP',
+                ],
+                'gaps_to_address' => [
+                    'غياب قاعدة بيانات واسعة للمشاريع في البداية',
+                    'حاجة إلى تحسين التسويق والانتشار',
+                ],
+                'recommendations' => [
+                    'توسيع قاعدة المشاريع الأولية عبر الشراكات',
+                    'الاستفادة من تجارب الجامعات والهاكاثونات',
+                ],
+                '_model_used' => 'openai',
+            ],
+            default => [
+                'summary' => '',
+                'note' => "No structured mock for type: {$type}",
+                '_model_used' => 'openai',
+            ],
+        };
     }
 
     protected function mockAnalysis(string $type, array $projectData): array

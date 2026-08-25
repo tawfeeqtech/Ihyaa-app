@@ -73,15 +73,23 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('investor.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));
 
         // ---------------- L5: العمليات المكلفة (AI + رفع) ----------------
-        RateLimiter::for('ai.analyze', fn (Request $r) => Limit::perMinute(3)->by($r->user()?->id.':'.$r->route('project')?->id));    // RL-AI-01 user+project (implicit binding → id)
+        // RL-AI-01 · user+project — throttle يسبق ربط النموذج، لذا route('project') قد يكون
+        // معرّفاً (string) وليس نموذج Project؛ نتعامل مع الحالتين (T103/T121).
+        RateLimiter::for('ai.analyze', function (Request $r) {
+            $project = $r->route('project');
+            $projectId = $project instanceof Project ? $project->id : $project;
+
+            return Limit::perMinute(3)->by(($r->user()?->id ?: $r->ip()).':'.$projectId);
+        });
         RateLimiter::for('ai.evaluate', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // SRS-API-44..46 · 10/دقيقة/مستخدم (evaluation-api.md §1)
         RateLimiter::for('ai.report', fn (Request $r) => Limit::perHour(20)->by($r->user()?->id ?: $r->ip()));                    // RL-AI-02 + SRS-API-48 · 20/ساعة/مستخدم (sprint2)
         RateLimiter::for('ai.search', fn (Request $r) => Limit::perMinute(60)->by($r->ip()));                                     // search-api.md · 60/دقيقة/عنوان IP
         RateLimiter::for('upload.file', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-IO-03/07
 
-        // ---------------- L6: المشرف ----------------
-        RateLimiter::for('admin.read', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));                // RL-ADM-01
-        RateLimiter::for('admin.export', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-ADM-02
+        // ---------------- L6: المشرف (tasks.md T008 · T086) ----------------
+        RateLimiter::for('admin.analytics', fn (Request $r) => Limit::perMinute(30)->by($r->user()?->id ?: $r->ip()));           // RL-ADM-01 · 30/دقيقة (EPIC-12)
+        RateLimiter::for('admin.export', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));                // RL-ADM-02 · 10/دقيقة
+        RateLimiter::for('admin.read', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));                // RL-ADM-01 · 60/دقيقة (احتياطي/قديم)
 
         // ---------------- L3+L4: نقاط مشتركة (حد حسب الدور) ----------------
         RateLimiter::for('shared.read', function (Request $r) {
@@ -92,5 +100,10 @@ class AppServiceProvider extends ServiceProvider
         });
         RateLimiter::for('shared.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));
         RateLimiter::for('dashboard', fn (Request $r) => Limit::perMinute(20)->by($r->user()?->id ?: $r->ip()));                // RL-IO-09/RL-INV-09
+
+        // ---------------- EPIC-09: الإشعارات (RL-SH-05..08 · tasks.md T008/T067) ----------------
+        RateLimiter::for('notifications.read', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));     // RL-SH-05/06 · 60/دقيقة
+        RateLimiter::for('notifications.unread', fn (Request $r) => Limit::perMinute(120)->by($r->user()?->id ?: $r->ip()));  // RL-SH-08 · 120/دقيقة (جرس — مرتفع)
+        RateLimiter::for('notifications.write', fn (Request $r) => Limit::perMinute(10)->by($r->user()?->id ?: $r->ip()));    // RL-SH-07 · 10/دقيقة
     }
 }

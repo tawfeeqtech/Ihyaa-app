@@ -52,6 +52,7 @@ class User extends Authenticatable
         'is_active',
         'email_verified_at',
         'last_login_at',
+        'last_active_at',
     ];
 
     protected $hidden = [
@@ -78,6 +79,7 @@ class User extends Authenticatable
             'otp_expires_at' => 'datetime',
             'otp_last_sent_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'last_active_at' => 'datetime',
         ];
     }
 

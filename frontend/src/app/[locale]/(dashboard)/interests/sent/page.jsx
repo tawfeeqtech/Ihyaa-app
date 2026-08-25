@@ -6,6 +6,7 @@ import { EnvelopeSimple, LinkSimple, PaperPlaneTilt, Warning } from "@phosphor-i
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
+import { PullToRefresh } from "@/shared/components/PullToRefresh";
 import { useToast } from "@/shared/components/Toast";
 import { cn } from "@/shared/utils";
 import { AIScoreBadge } from "@/features/projects/components/AIScoreBadge";
@@ -108,7 +109,8 @@ export default function InterestsSentPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PullToRefresh onRefresh={load}>
+      <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold sm:text-3xl">{t("board.sentTitle")}</h1>
         <p className="mt-1 text-text-secondary">{t("board.sentSubtitle")}</p>
@@ -220,7 +222,8 @@ export default function InterestsSentPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

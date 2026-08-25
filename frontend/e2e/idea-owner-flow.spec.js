@@ -11,6 +11,7 @@ const {
   appPath,
   lang,
   t,
+  tExact,
   makeApiProject,
   makeDemoProjects,
   mockRegister,
@@ -82,20 +83,20 @@ test.describe("Idea owner flow", () => {
     await page.keyboard.press("Enter");
     // Attach a cover image (sr-only input — setInputFiles works on hidden inputs).
     await page.locator("#w-cover").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG_BYTES });
-    await page.getByRole("button", { name: t(testInfo, "التالي", "Next") }).click();
+    await page.getByRole("button", { name: tExact(testInfo, "التالي", "Next") }).click();
 
     // Step 2 — details & links.
     await page.locator("#w-details").fill(DETAILS);
     await page.locator("#w-repo").fill("https://github.com/example/smart-funding");
     await page.locator("#w-video").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-    await page.getByRole("button", { name: t(testInfo, "التالي", "Next") }).click();
+    await page.getByRole("button", { name: tExact(testInfo, "التالي", "Next") }).click();
 
     // Step 3 — team & budget.
     await page.getByLabel(memberNameLabel(testInfo)).fill("خالد العتيبي");
     await page.getByLabel(t(testInfo, "الدور", "Role")).fill("مؤسس تقني");
     await page.locator("#w-budget-min").fill("50000");
     await page.locator("#w-budget-max").fill("150000");
-    await page.getByRole("button", { name: t(testInfo, "التالي", "Next") }).click();
+    await page.getByRole("button", { name: tExact(testInfo, "التالي", "Next") }).click();
 
     // Step 4 — visibility + rights → publish.
     await page.getByLabel(t(testInfo, "أُقر بأنني أملك", "I confirm I own")).check();

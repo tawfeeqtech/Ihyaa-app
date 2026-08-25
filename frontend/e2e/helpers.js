@@ -35,17 +35,33 @@ function t(testInfo, ar, en) {
   return new RegExp(lang(testInfo) === "ar" ? ar : en);
 }
 
+/**
+ * Anchored regex matching EXACTLY the text of the active locale.
+ * Playwright ignores `exact: true` when `name`/`hasText` is a RegExp, so
+ * substring collisions (e.g. pagination "Next" vs "Open Next.js Dev Tools")
+ * must be disambiguated with ^…$ anchors.
+ */
+function tExact(testInfo, ar, en) {
+  return new RegExp(`^${lang(testInfo) === "ar" ? ar : en}$`);
+}
+
 /** Laravel envelope: { success, message, data }. */
 function envelope(data, message = "ok") {
   return { success: true, message, data };
 }
 
-/** A JSON Response in the Laravel envelope shape. */
+/**
+ * Playwright `route.fulfill()` options for a JSON body in the Laravel envelope
+ * shape. Must be a plain options object — a WHATWG `Response` instance is NOT
+ * accepted by `route.fulfill` (it destructures `options.json`/`options.body`
+ * from it and rejects with "Can specify either body or json parameters").
+ */
 function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
+  return {
     status,
     headers: { "Content-Type": "application/json" },
-  });
+    body: JSON.stringify(body),
+  };
 }
 
 /** Empty Laravel pagination meta. */
@@ -73,9 +89,20 @@ async function addAuthCookies(context, { role, name, token = "e2e-token-123" }) 
   ]);
 }
 
-/** Register a page.route for an API endpoint, optionally gated by HTTP method. */
+/**
+ * Register a page.route for an API endpoint, optionally gated by HTTP method.
+ *
+ * The pattern matches the URL PATHNAME only — the query string is ignored — so
+ * a mock registered as `notifications` also intercepts
+ * `/api/notifications?page=1&per_page=20`. (A Playwright glob written as
+ * two stars then a slash before the path compiles to an anchored regex that
+ * does NOT match query strings, so mocked requests silently fell through to the
+ * real backend.) A single `*` in the pattern matches one path segment.
+ */
 function mockApi(page, method, pathPattern, handler) {
-  return page.route(`**/api/${pathPattern}`, async (route) => {
+  const escaped = pathPattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*");
+  const pathRe = new RegExp(`^/api/${escaped}$`);
+  return page.route((url) => pathRe.test(url.pathname), async (route) => {
     if (method && route.request().method() !== method) return route.continue();
     await handler(route);
   });
@@ -109,7 +136,19 @@ async function mockVerifyOtp(page, opts = {}) {
   await mockApi(page, "POST", "email/verify", async (route) => {
     await route.fulfill(
       jsonResponse(
-        envelope({ token, user: { id: 1, name, email: "user@example.com", role } })
+        envelope({
+          token,
+          user: {
+            id: 1,
+            name,
+            email: "user@example.com",
+            role,
+            // Matches the real UserResource — a successfully verified account is
+            // email_verified=true, which makes the client set ihyaa_verified=1
+            // (الدستور V · src/middleware.js redirects /projects/new → OTP when 0).
+            email_verified: true,
+          },
+        })
       )
     );
   });
@@ -121,7 +160,19 @@ async function mockLogin(page, opts = {}) {
   await mockApi(page, "POST", "login", async (route) => {
     await route.fulfill(
       jsonResponse(
-        envelope({ token, user: { id: 1, name, email: "user@example.com", role } })
+        envelope({
+          token,
+          user: {
+            id: 1,
+            name,
+            email: "user@example.com",
+            role,
+            // Matches the real UserResource. Pass { email_verified: false } in
+            // opts to simulate an unverified login (the client then keeps
+            // ihyaa_verified=0 and middleware enforces الدستور V).
+            email_verified: true,
+          },
+        })
       )
     );
   });
@@ -142,7 +193,7 @@ async function mockOAuth(page, opts = {}) {
     token = "e2e-oauth-token",
   } = opts;
 
-  await page.route(`**/api/auth/${provider}`, async (route) => {
+  await page.route((url) => url.pathname === `/api/auth/${provider}`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const redirectTo = new URL(route.request().url()).searchParams.get("redirect_to");
     const cb = redirectTo || `${APP_ORIGIN}/ar/auth/callback`;
@@ -256,7 +307,7 @@ function makeDemoProjects(count = 24) {
  */
 async function mockProjectsList(page, { projects, perPage = PAGE_SIZE } = {}) {
   const all = projects ?? makeDemoProjects();
-  await page.route("**/api/projects", async (route) => {
+  await page.route((url) => url.pathname === "/api/projects", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const url = new URL(route.request().url());
     const pageNo = Math.max(1, Number(url.searchParams.get("page") ?? 1));
@@ -351,6 +402,7 @@ module.exports = {
   lang,
   appPath,
   t,
+  tExact,
   envelope,
   jsonResponse,
   addAuthCookies,

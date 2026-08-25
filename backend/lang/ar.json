@@ -91,5 +91,10 @@
     "trash.confirm_required": "يجب تأكيد الحذف النهائي",
 
     "ai_agent.analysis_queued": "بدأ التحليل — النتيجة جاهزة عبر معرف النتيجة",
-    "ai_agent.artifact_not_found": "التحليل غير موجود أو انتهت صلاحيته (24 ساعة)"
+    "ai_agent.artifact_not_found": "التحليل غير موجود أو انتهت صلاحيته (24 ساعة)",
+    "ai_agent.analysis_completed_title": "اكتمل تحليل مشروعك",
+    "ai_agent.analysis_in_progress": "لا يزال التحليل قيد المعالجة — جرّب بعد قليل",
+    "ai_agent.analysis_incomplete": "التحليل لم يكتمل بعد — تعذّر تصدير PDF",
+    "ai_agent.project_not_evaluated": "يجب تقييم المشروع أولاً قبل إجراء التحليل",
+    "ai_agent.pdf_title": "تقرير التحليل — :app"
 }

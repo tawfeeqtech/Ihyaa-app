@@ -13,6 +13,7 @@ const {
   appPath,
   lang,
   t,
+  tExact,
   makeDemoProjects,
   mockProjectsList,
   mockSearchSuggestions,
@@ -59,7 +60,7 @@ test.describe("Project browsing", () => {
     await expect(page.getByText(countText(testInfo, 25))).toBeVisible();
 
     // Go to page 2.
-    await page.getByRole("button", { name: t(testInfo, "التالي", "Next") }).click();
+    await page.getByRole("button", { name: tExact(testInfo, "التالي", "Next") }).click();
     await expect(page.getByRole("heading", { name: "Demo Project 13" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Demo Project 01" })).not.toBeVisible();
   });

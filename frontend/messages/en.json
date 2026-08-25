@@ -11,6 +11,77 @@
     "description": "We are sorry for the interruption. Please try again, or contact us if the problem persists.",
     "retry": "Try again"
   },
+  "aiAgent": {
+    "title": "AI Agent — Project Analysis",
+    "subtitle": "Competitive comparison, SWOT analysis, and a competitive report with an estimated market share — grounded in your project's latest official evaluation",
+    "backToProject": "Back to project",
+    "tabsLabel": "Analysis type",
+    "tabs": {
+      "comparison": "Comparison",
+      "swot": "SWOT",
+      "competitive": "Competitive report"
+    },
+    "status": {
+      "completed": "Completed",
+      "processing": "Processing",
+      "failed": "Failed",
+      "none": "Not started"
+    },
+    "startFirstTitle": "Start your first analysis",
+    "startFirstDesc": "Pick an analysis type to begin — the AI agent will prepare your report in under two minutes.",
+    "startAnalysis": "Start analysis",
+    "startComparison": "Compare with similar projects",
+    "startSwot": "Run a SWOT analysis",
+    "startCompetitive": "Build a competitive report",
+    "processingTitle": "Analysis in progress",
+    "processingDesc": "The AI agent is preparing this analysis from your project's latest official evaluation.",
+    "failedTitle": "Analysis failed",
+    "retry": "Try again",
+    "update": "Update analysis",
+    "updateDesc": "Regenerate this analysis from the project's latest data",
+    "exportPdf": "Export PDF",
+    "exporting": "Exporting...",
+    "exportError": "Failed to export PDF",
+    "version": "Version {version}",
+    "model": "Model: {model}",
+    "createdAt": "Created {date}",
+    "started": "Analysis started — a new version will appear when it completes",
+    "alreadyRunning": "An analysis is already running — wait for the current version to finish",
+    "notOwner": "You don't have access to this analysis",
+    "loadError": "Failed to load analyses",
+    "noData": "No data",
+    "comparison": {
+      "competitorsTitle": "Similar evaluated projects ({count})",
+      "insufficientNote": "Insufficient data — fewer than 3 evaluated projects in the same category",
+      "noCompetitors": "No similar evaluated projects in this category yet — add projects or wait for their evaluations",
+      "score": "AI score",
+      "overlap": "Shared tags",
+      "titleCol": "Project"
+    },
+    "swot": {
+      "summary": "Executive summary",
+      "categories": {
+        "strengths": "Strengths",
+        "weaknesses": "Weaknesses",
+        "opportunities": "Opportunities",
+        "threats": "Threats"
+      },
+      "recommendations": "Recommendations",
+      "derivedFrom": "Derived from the project's latest official evaluation"
+    },
+    "competitive": {
+      "advantage": "Competitive advantages",
+      "differentiators": "Differentiators",
+      "gaps": "Gaps to address",
+      "recommendations": "Recommendations",
+      "marketShare": "Market share estimate",
+      "sharePercent": "Estimated share",
+      "range": "Expected range (USD)",
+      "marketSize": "Total addressable market (TAM)",
+      "assumptions": "Assumptions",
+      "limitations": "Limitations"
+    }
+  },
   "nav": {
     "explore": "Explore projects",
     "howItWorks": "How it works",
@@ -24,7 +95,8 @@
     "darkMode": "Dark mode",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "search": "Search"
+    "search": "Search",
+    "notifications": "Notifications"
   },
   "footer": {
     "aboutDescription": "A marketplace connecting idea owners with investors through AI evaluation across five dimensions and practical gap analysis.",
@@ -54,7 +126,9 @@
     "roleInvestor": "Investor",
     "betaLabel": "Beta — MVP",
     "guest": "Guest",
-    "mobileNavigation": "Quick navigation"
+    "mobileNavigation": "Quick navigation",
+    "adminAnalytics": "Analytics",
+    "roleAdmin": "Admin"
   },
   "auth": {
     "layoutNote": "By continuing you agree to our Terms of Service and Privacy Policy",
@@ -442,6 +516,8 @@
       "reevaluateConfirmBody": "Your project will be evaluated again and it may take up to 3 minutes — continue?",
       "reevaluateConfirm": "Continue",
       "reevaluateCancel": "Cancel",
+      "analysisLink": "AI Agent — Project Analysis",
+      "analysisHint": "Deep analysis, competitive comparison, and SWOT report from the latest official evaluation",
       "evaluationHistoryTitle": "Evaluation history",
       "evaluationHistoryEmpty": "No completed evaluations yet",
       "evaluationHistoryEmptyDesc": "Your first evaluation will appear here once complete",
@@ -790,6 +866,42 @@
       "sentDesc": "Press \"I am interested\" on any project to see your interests here"
     }
   },
+  "notifications": {
+    "bellLabel": "Notifications, {count} unread",
+    "dropdown": {
+      "title": "Notifications",
+      "unread": "{count} unread",
+      "listLabel": "Recent notifications",
+      "loading": "Loading…",
+      "viewAll": "View all",
+      "markAllRead": "Mark all read",
+      "unreadBadge": "Unread"
+    },
+    "page": {
+      "title": "Notifications",
+      "subtitle": "All your notifications — interest requests, evaluation results and updates",
+      "markAllRead": "Mark all as read",
+      "markAllReadSuccess": "All notifications marked as read",
+      "markAllReadError": "Could not mark notifications as read",
+      "loadError": "Failed to load notifications",
+      "pagination": "Notifications pagination",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "types": {
+      "interest_new": "New interest",
+      "interest_accepted": "Interest accepted",
+      "interest_rejected": "Interest rejected",
+      "interest_cancelled": "Interest cancelled",
+      "evaluation_completed": "Evaluation complete",
+      "analysis_completed": "Analysis complete",
+      "generic": "Notification"
+    },
+    "empty": {
+      "title": "No notifications yet",
+      "desc": "When an investor expresses interest or your project evaluation completes, you'll see it here"
+    }
+  },
   "profile": {
     "title": "Profile",
     "subtitle": "Manage your personal information and role-specific details",
@@ -883,5 +995,42 @@
     "prev": "Previous",
     "next": "Next",
     "perPage": "per page"
+  },
+  "admin": {
+    "title": "Analytics",
+    "subtitle": "Platform overview for Ihyaa: users, projects, evaluation, and interest requests",
+    "loadError": "Failed to load analytics",
+    "exportCsv": "Export CSV",
+    "exporting": "Exporting…",
+    "exportSuccess": "Report exported successfully",
+    "exportFailed": "Failed to export the report",
+    "stats": {
+      "users": "Users",
+      "projects": "Projects",
+      "avgScore": "Avg AI score",
+      "interests": "Interest requests"
+    },
+    "projects": {
+      "active": "Active",
+      "trashed": "Trashed"
+    },
+    "sector": {
+      "title": "Sector distribution",
+      "insufficient": "Not enough data for a chart — projects in at least two sectors are needed",
+      "count": "Count",
+      "percentage": "Share"
+    },
+    "activeUsers": {
+      "title": "Active users — last 7 days",
+      "insufficient": "Not enough activity data for a chart",
+      "count": "Daily users"
+    },
+    "interestsTable": {
+      "title": "Interest requests by status",
+      "status": "Status",
+      "count": "Count",
+      "total": "Total",
+      "emptyNote": "No interest requests yet"
+    }
   }
 }

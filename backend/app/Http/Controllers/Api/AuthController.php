@@ -106,7 +106,7 @@ class AuthController
             return $this->error('ACCOUNT_DISABLED', __('auth.account_disabled'), 403);
         }
 
-        $user->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill(['last_login_at' => now(), 'last_active_at' => now()])->save();
 
         $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
 
@@ -308,7 +308,7 @@ class AuthController
             }
         }
 
-        $user->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill(['last_login_at' => now(), 'last_active_at' => now()])->save();
 
         $token = $user->createToken('api', ['*'], now()->addHours(User::TOKEN_EXPIRY_HOURS));
 

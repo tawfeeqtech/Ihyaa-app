@@ -14,6 +14,7 @@ const { test, expect } = require("@playwright/test");
 const {
   appPath,
   t,
+  tExact,
   envelope,
   jsonResponse,
   addAuthCookies,
@@ -93,6 +94,17 @@ async function mockReceivedBoard(page, { items = [], counters = ZERO_COUNTERS } 
  * DELETE /api/interests/{id} for the cancel flow.
  */
 async function mockSentBoard(page, { items = [], counters = ZERO_COUNTERS } = {}) {
+  // Playwright dispatches routes in REVERSE registration order (last-registered
+  // wins first) and route.continue() does NOT fall through to earlier routes.
+  // The broad DELETE interests/* must therefore be registered BEFORE the specific
+  // GET interests/sent, otherwise a GET /interests/sent request would hit the
+  // DELETE matcher first (it matches [^/]* = "sent"), continue() to the real
+  // backend, and 401. Register the specific pattern LAST so it wins.
+  await mockApi(page, "DELETE", "interests/*", async (route) => {
+    const id = Number(route.request().url().split("/").pop());
+    await route.fulfill(jsonResponse(envelope({ id, status: "cancelled" })));
+  });
+
   await mockApi(page, "GET", "interests/sent", async (route) => {
     const url = new URL(route.request().url());
     const pageNo = Math.max(1, Number(url.searchParams.get("page") ?? 1));
@@ -116,11 +128,6 @@ async function mockSentBoard(page, { items = [], counters = ZERO_COUNTERS } = {}
         counters: { ...ZERO_COUNTERS, ...counters },
       })
     );
-  });
-
-  await mockApi(page, "DELETE", "interests/*", async (route) => {
-    const id = Number(route.request().url().split("/").pop());
-    await route.fulfill(jsonResponse(envelope({ id, status: "cancelled" })));
   });
 }
 
@@ -157,7 +164,10 @@ test.describe("Received interest board (idea owner)", () => {
     // Counter widgets (5) — the pending one reads 1.
     await expect(page.locator('[role="listitem"]')).toHaveCount(5);
     await expect(
-      page.locator('[role="listitem"]').filter({ hasText: /معلق/ }).getByText("1", { exact: true })
+      page
+        .locator('[role="listitem"]')
+        .filter({ hasText: t(testInfo, "معلق", "Pending") })
+        .getByText("1", { exact: true })
     ).toBeVisible();
 
     // Investor names.
@@ -204,12 +214,12 @@ test.describe("Sent interest board (investor)", () => {
 
     // Page 1: 12 cards, "مشروع 13" not yet visible.
     await expect(page.locator("article")).toHaveCount(12);
-    await expect(page.getByRole("heading", { name: "مشروع 1" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "مشروع 13" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "مشروع 1", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "مشروع 13", exact: true })).not.toBeVisible();
 
     // Page 2: only "مشروع 13".
-    await page.getByRole("button", { name: t(testInfo, "التالي", "Next") }).click();
-    await expect(page.getByRole("heading", { name: "مشروع 13" })).toBeVisible();
+    await page.getByRole("button", { name: tExact(testInfo, "التالي", "Next") }).click();
+    await expect(page.getByRole("heading", { name: "مشروع 13", exact: true })).toBeVisible();
     await expect(page.locator("article")).toHaveCount(1);
 
     // Cancel → confirmation dialog → toast.

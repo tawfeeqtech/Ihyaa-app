@@ -17,7 +17,10 @@ export default async function DashboardLayout({ children }) {
 
   const authed = Boolean(cookieStore.get("ihyaa_token")?.value);
   const rawRole = cookieStore.get("ihyaa_role")?.value;
-  const role = rawRole === "investor" ? "investor" : "idea_owner";
+  // Preserve `admin` so the sidebar shows the admin nav (EPIC-12); anyone else
+  // without a recognized role falls back to the idea-owner default.
+  const role =
+    rawRole === "investor" ? "investor" : rawRole === "admin" ? "admin" : "idea_owner";
   const userName = cookieStore.get("ihyaa_name")?.value ?? t("guest");
 
   return (
@@ -38,6 +41,7 @@ export default async function DashboardLayout({ children }) {
                 newProject: t("newProject"),
                 receivedInterests: t("receivedInterests"),
                 sentInterests: t("sentInterests"),
+                adminAnalytics: t("adminAnalytics"),
               }}
             />
           </nav>
@@ -60,6 +64,19 @@ import { Link } from "@/config/i18n/link";
 import { cn } from "@/shared/utils";
 
 function SidebarMobileLinks({ role, labels }) {
+  // EPIC-12: admin mobile nav is just the analytics entry (admins have no
+  // project/interest workflows).
+  if (role === "admin") {
+    return (
+      <Link
+        href="/admin/analytics"
+        className="shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white"
+      >
+        {labels.adminAnalytics}
+      </Link>
+    );
+  }
+
   return (
     <>
       <Link

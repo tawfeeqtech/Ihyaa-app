@@ -11,6 +11,77 @@
     "description": "نعتذر عن هذا الخلل. جرّب إعادة المحاولة، وإن تكررت المشكلة فتواصل معنا.",
     "retry": "إعادة المحاولة"
   },
+  "aiAgent": {
+    "title": "وكيل AI — تحليل المشروع",
+    "subtitle": "مقارنة تنافسية، تحليل SWOT، وتقرير تنافسي بتقدير حصة سوقية — مستندة إلى آخر تقييم رسمي لمشروعك",
+    "backToProject": "العودة إلى المشروع",
+    "tabsLabel": "نوع التحليل",
+    "tabs": {
+      "comparison": "مقارنة",
+      "swot": "SWOT",
+      "competitive": "تقرير تنافسي"
+    },
+    "status": {
+      "completed": "مكتمل",
+      "processing": "قيد المعالجة",
+      "failed": "فشل",
+      "none": "لم يبدأ"
+    },
+    "startFirstTitle": "ابدأ تحليلك الأول",
+    "startFirstDesc": "اختر نوع التحليل لبدء العمل — سيعمل وكيل الذكاء الاصطناعي على إعداد تقريرك خلال أقل من دقيقتين.",
+    "startAnalysis": "ابدأ التحليل",
+    "startComparison": "قارن بمشاريع مشابهة",
+    "startSwot": "أجرِ تحليل SWOT",
+    "startCompetitive": "أنشئ تقريراً تنافسياً",
+    "processingTitle": "التحليل قيد المعالجة",
+    "processingDesc": "يعمل وكيل الذكاء الاصطناعي الآن على إعداد هذا التحليل من آخر تقييم رسمي لمشروعك.",
+    "failedTitle": "تعذّر إكمال التحليل",
+    "retry": "إعادة المحاولة",
+    "update": "تحديث التحليل",
+    "updateDesc": "أعد إنشاء هذا التحليل من أحدث بيانات المشروع",
+    "exportPdf": "تصدير PDF",
+    "exporting": "جارٍ التصدير...",
+    "exportError": "تعذّر تصدير ملف PDF",
+    "version": "الإصدار {version}",
+    "model": "النموذج: {model}",
+    "createdAt": "أُنشئ في {date}",
+    "started": "بدأ التحليل — سيظهر إصدار جديد عند اكتماله",
+    "alreadyRunning": "لا يزال التحليل قيد المعالجة — انتظر اكتمال النسخة الحالية",
+    "notOwner": "ليست لديك صلاحية الوصول إلى هذا التحليل",
+    "loadError": "تعذّر تحميل التحليلات",
+    "noData": "لا توجد بيانات",
+    "comparison": {
+      "competitorsTitle": "مشاريع مشابهة مقيّمة ({count})",
+      "insufficientNote": "بيانات غير كافية — عدد المشاريع المشابهة المقيّمة في نفس الفئة أقل من 3",
+      "noCompetitors": "لا توجد مشاريع مشابهة مقيّمة في نفس الفئة بعد — أضف مشاريع أو انتظر اكتمال تقييمها",
+      "score": "درجة AI",
+      "overlap": "وسوم مشتركة",
+      "titleCol": "المشروع"
+    },
+    "swot": {
+      "summary": "الملخص التنفيذي",
+      "categories": {
+        "strengths": "نقاط القوة",
+        "weaknesses": "نقاط الضعف",
+        "opportunities": "الفرص",
+        "threats": "التهديدات"
+      },
+      "recommendations": "التوصيات",
+      "derivedFrom": "مشتق من آخر تقييم رسمي للمشروع"
+    },
+    "competitive": {
+      "advantage": "المزايا التنافسية",
+      "differentiators": "عوامل التمييز",
+      "gaps": "فجوات يجب معالجتها",
+      "recommendations": "التوصيات",
+      "marketShare": "تقدير الحصة السوقية",
+      "sharePercent": "الحصة التقريبية",
+      "range": "النطاق المتوقع (USD)",
+      "marketSize": "حجم السوق الكلي (TAM)",
+      "assumptions": "الافتراضات",
+      "limitations": "القيود"
+    }
+  },
   "nav": {
     "explore": "استكشف المشاريع",
     "howItWorks": "كيف تعمل",
@@ -24,7 +95,8 @@
     "darkMode": "الوضع الداكن",
     "openMenu": "فتح القائمة",
     "closeMenu": "إغلاق القائمة",
-    "search": "البحث"
+    "search": "البحث",
+    "notifications": "الإشعارات"
   },
   "footer": {
     "aboutDescription": "منصة تربط أصحاب الأفكار بالمستثمرين عبر تقييم ذكي يعتمد على خمسة أبعاد وتحليل فجوات عملي.",
@@ -54,7 +126,9 @@
     "roleInvestor": "مستثمر",
     "betaLabel": "النسخة التجريبية — MVP",
     "guest": "زائر",
-    "mobileNavigation": "تنقل سريع"
+    "mobileNavigation": "تنقل سريع",
+    "adminAnalytics": "التحليلات",
+    "roleAdmin": "مشرف"
   },
   "auth": {
     "layoutNote": "بمتابعتك أنت توافق على الشروط والأحكام وسياسة الخصوصية",
@@ -442,6 +516,8 @@
       "reevaluateConfirmBody": "سيتم تقييم مشروعك من جديد وقد يستغرق حتى 3 دقائق — متابعة؟",
       "reevaluateConfirm": "متابعة",
       "reevaluateCancel": "إلغاء",
+      "analysisLink": "وكيل AI — تحليل المشروع",
+      "analysisHint": "تحليل معمّق، مقارنة تنافسية، وتقرير SWOT من آخر تقييم رسمي",
       "evaluationHistoryTitle": "سجل التقييمات",
       "evaluationHistoryEmpty": "لا توجد تقييمات مكتملة بعد",
       "evaluationHistoryEmptyDesc": "عند اكتمال أول تقييم لمشروعك سيظهر هنا",
@@ -790,6 +866,42 @@
       "sentDesc": "اضغط زر «أنا مهتم» في أي مشروع لتظهر اهتماماتك هنا"
     }
   },
+  "notifications": {
+    "bellLabel": "الإشعارات، {count} غير مقروء",
+    "dropdown": {
+      "title": "الإشعارات",
+      "unread": "{count} غير مقروء",
+      "listLabel": "أحدث الإشعارات",
+      "loading": "جارٍ التحميل…",
+      "viewAll": "عرض الكل",
+      "markAllRead": "تحديد الكل كمقروء",
+      "unreadBadge": "غير مقروء"
+    },
+    "page": {
+      "title": "الإشعارات",
+      "subtitle": "جميع إشعاراتك — طلبات الاهتمام ونتائج التقييم والتحديثات",
+      "markAllRead": "تحديد الكل كمقروء",
+      "markAllReadSuccess": "تم تحديد جميع الإشعارات كمقروءة",
+      "markAllReadError": "تعذّر تحديد الإشعارات كمقروءة",
+      "loadError": "تعذّر تحميل الإشعارات",
+      "pagination": "ترقيم صفحات الإشعارات",
+      "prev": "السابق",
+      "next": "التالي"
+    },
+    "types": {
+      "interest_new": "اهتمام جديد",
+      "interest_accepted": "تم قبول الاهتمام",
+      "interest_rejected": "تم رفض الاهتمام",
+      "interest_cancelled": "تم إلغاء الاهتمام",
+      "evaluation_completed": "اكتمل التقييم",
+      "analysis_completed": "اكتمل التحليل",
+      "generic": "إشعار"
+    },
+    "empty": {
+      "title": "لا توجد إشعارات بعد",
+      "desc": "عندما يُبدي مستثمر اهتمامه أو يكتمل تقييم مشروعك، ستظهر الإشعارات هنا"
+    }
+  },
   "profile": {
     "title": "الملف الشخصي",
     "subtitle": "إدارة معلوماتك الشخصية وتفاصيل دورك",
@@ -883,5 +995,42 @@
     "prev": "السابق",
     "next": "التالي",
     "perPage": "لكل صفحة"
+  },
+  "admin": {
+    "title": "لوحة التحليلات",
+    "subtitle": "نظرة عامة على منصة إحياء: المستخدمون، المشاريع، التقييم، وطلبات الاهتمام",
+    "loadError": "تعذّر تحميل التحليلات",
+    "exportCsv": "تصدير CSV",
+    "exporting": "جارٍ التصدير...",
+    "exportSuccess": "تم تصدير التقرير بنجاح",
+    "exportFailed": "تعذّر تصدير التقرير",
+    "stats": {
+      "users": "المستخدمون",
+      "projects": "المشاريع",
+      "avgScore": "متوسط تقييم AI",
+      "interests": "طلبات الاهتمام"
+    },
+    "projects": {
+      "active": "نشط",
+      "trashed": "محذوف"
+    },
+    "sector": {
+      "title": "التوزيع حسب المجال",
+      "insufficient": "البيانات غير كافية للرسم البياني — يلزم مشاريع في مجالين على الأقل",
+      "count": "العدد",
+      "percentage": "النسبة"
+    },
+    "activeUsers": {
+      "title": "المستخدمون النشطون — آخر 7 أيام",
+      "insufficient": "لا توجد بيانات نشاط كافية للرسم البياني",
+      "count": "مستخدمو اليوم"
+    },
+    "interestsTable": {
+      "title": "طلبات الاهتمام حسب الحالة",
+      "status": "الحالة",
+      "count": "العدد",
+      "total": "الإجمالي",
+      "emptyNote": "لا توجد طلبات اهتمام حتى الآن"
+    }
   }
 }

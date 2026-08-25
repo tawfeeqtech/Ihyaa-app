@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { List, Moon, SignOut, Sun, UserCircle, X } from "@phosphor-icons/react";
+import { Bell, List, Moon, SignOut, Sun, UserCircle, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/config/i18n/link";
 import { Logo } from "./Logo";
@@ -12,6 +12,7 @@ import { useToast } from "@/shared/components/Toast";
 import { Button } from "@/shared/components/Button";
 import { cn } from "@/shared/utils";
 import { useAuth } from "@/features/auth";
+import { NotificationBell } from "@/features/notifications";
 
 export function Header({ hideAuthActions = false }) {
   const t = useTranslations("nav");
@@ -78,6 +79,10 @@ export function Header({ hideAuthActions = false }) {
               <Moon size={20} weight="regular" />
             )}
           </button>
+
+          {/* EPIC-09: the notification bell is global — visible on every page
+              once authenticated, even where the auth actions are hidden. */}
+          {isAuthenticated && <NotificationBell />}
 
           {!hideAuthActions &&
             (isAuthenticated ? (
@@ -147,6 +152,12 @@ export function Header({ hideAuthActions = false }) {
                     <Link href={dashboardHref} onClick={() => setMobileOpen(false)}>
                       <Button fullWidth variant="secondary">
                         {t("dashboard")}
+                      </Button>
+                    </Link>
+                    <Link href="/notifications" onClick={() => setMobileOpen(false)}>
+                      <Button fullWidth variant="secondary">
+                        <Bell size={18} aria-hidden />
+                        {t("notifications")}
                       </Button>
                     </Link>
                     <Button fullWidth variant="danger" onClick={handleLogout}>

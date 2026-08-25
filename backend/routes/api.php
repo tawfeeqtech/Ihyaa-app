@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminAnalyticsController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AgreementController;
 use App\Http\Controllers\Api\AIAgentController;
@@ -205,6 +206,12 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
 
         Route::get('/ai/analysis/{artifact}', [AIAgentController::class, 'show'])
             ->middleware('throttle:ai.report');                      // RL-AI-02 · 10/دقيقة
+
+        Route::get('/ai/analysis/{artifact}/export', [AIAgentController::class, 'export'])
+            ->middleware('throttle:ai.report');                      // T118 · RL-AI-02 · PDF (المالك فقط)
+
+        Route::get('/projects/{project}/ai-analysis', [AIAgentController::class, 'projectAnalysis'])
+            ->middleware('throttle:shared.read');                    // T115 · أحدث إصدار لكل نوع (المالك فقط)
     });
 
     /*
@@ -272,16 +279,19 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
         ->middleware('throttle:shared.read');                        // RL-SH-04 · 10/دقيقة (الطرفان)
 
     Route::get('/notifications', [NotificationController::class, 'index'])
-        ->middleware('throttle:shared.read');                        // RL-SH-05 · 30/دقيقة
+        ->middleware('throttle:notifications.read');                // RL-SH-05 · T008 · 60/دقيقة (EPIC-09)
+
+    Route::get('/notifications/recent', [NotificationController::class, 'recent'])
+        ->middleware('throttle:notifications.read');                // RL-SH-05 · T067 · 60/دقيقة — آخر 5 للجرس
 
     Route::put('/notifications/{notification}/read', [NotificationController::class, 'markRead'])
-        ->middleware('throttle:shared.read');                        // RL-SH-06 · 30/دقيقة
+        ->middleware('throttle:notifications.read');                // RL-SH-06 · T067 · 60/دقيقة
 
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])
-        ->middleware('throttle:shared.write');                       // RL-SH-07 · 10/دقيقة
+        ->middleware('throttle:notifications.write');               // RL-SH-07 · T067 · 10/دقيقة
 
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
-        ->middleware('throttle:shared.read');                        // RL-SH-08 · 30/دقيقة
+        ->middleware('throttle:notifications.unread');              // RL-SH-08 · T008 · 120/دقيقة
 
     /*
     | L3/L4 — لوحات التحكم (Dashboard — 20/دقيقة)
@@ -301,10 +311,10 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     */
     Route::middleware('admin')->group(function () {
 
-        Route::get('/admin/analytics', [AdminController::class, 'analytics'])
-            ->middleware('throttle:admin.read');                     // RL-ADM-01 · 60/دقيقة
+        Route::get('/admin/analytics', [AdminAnalyticsController::class, 'analytics'])
+            ->middleware('throttle:admin.analytics');                // RL-ADM-01 · 30/دقيقة (tasks.md T086)
 
-        Route::get('/admin/analytics/export', [AdminController::class, 'export'])
+        Route::get('/admin/analytics/export', [AdminAnalyticsController::class, 'export'])
             ->middleware('throttle:admin.export');                   // RL-ADM-02 · 10/دقيقة
     });
 });

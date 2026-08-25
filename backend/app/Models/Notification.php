@@ -4,15 +4,20 @@ namespace App\Models;
 
 use App\Events\EvaluationCompleted;
 use App\Events\InterestCreated;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * إشعار داخل التطبيق — SRS-F09.
- * is_critical = true → بث فوري عبر Reverb (interest.created | evaluation.completed).
+ * إشعار داخل التطبيق — SRS-F09 · T022 · EPIC-09.
+ * is_critical = true → بث فوري عبر Reverb (interest_new | evaluation_completed).
  * أنواع: interest_received · evaluation_completed (حرجة) · interest_accepted · interest_rejected
  *        interest_cancelled · project_updated · evaluation_failed
+ *
+ * نقطة الإنشاء الوحيدة عبر NotificationService::notify — الـ static
+ * `pushNotification` يفوّض إليه (توافق خلفي للمنشئين القدامى). البث يُقرَّر
+ * بكتالوج config/notifications.php (حارس صارم ضد تضخم الاتصال — US-048).
  */
 class Notification extends Model
 {
@@ -48,8 +53,15 @@ class Notification extends Model
         return $query->whereNull('read_at');
     }
 
+    /** آخر N إشعارات للجرس (US-047 · T069) — الأحدث أولاً. */
+    public function scopeRecent(Builder $query, int $limit = 5): Builder
+    {
+        return $query->orderByDesc('created_at')->limit(max(1, $limit));
+    }
+
     /**
-     * إنشاء إشعار موحّد + بث فوري للحرج.
+     * إنشاء إشعار موحّد + بث فوري للحرج — T026 · US-047/048.
+     * يفوّض إلى NotificationService::notify (نقطة الإنشاء الوحيدة).
      * الاسم pushNotification — لأن Model::push() محجوز لـ Eloquent (حفظ العلاقات).
      */
     public static function pushNotification(
@@ -60,23 +72,21 @@ class Notification extends Model
         array $data = [],
         bool $isCritical = false,
     ): self {
-        $notification = static::create([
-            'user_id' => $userId,
-            'type' => $type,
-            'title' => $title,
-            'body' => $body,
-            'data' => $data,
-            'is_critical' => $isCritical,
-        ]);
-
-        if ($isCritical) {
-            $notification->broadcastCritical();
-        }
-
-        return $notification;
+        return app(NotificationService::class)->notify(
+            $userId,
+            $type,
+            $title,
+            $body,
+            $data,
+            $isCritical,
+        );
     }
 
-    /** بث الحدث الحرج عبر القناة الخاصة private-users.{user_id} */
+    /**
+     * بث الحدث الحرج عبر القناة الخاصة private-users.{user_id}.
+     * أُبقي للتوافق الخلفي — مسار EPIC-09 الجديد يستخدم CriticalNotificationBroadcast
+     * عبر NotificationService (قناة notifications.{user_id} · حدث notification.received).
+     */
     public function broadcastCritical(): void
     {
         $eventClass = match ($this->type) {

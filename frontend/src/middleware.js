@@ -13,10 +13,12 @@ export const VERIFIED_COOKIE = "ihyaa_verified";
 /** Paths that are only reachable when authenticated. */
 const PROTECTED_PREFIXES = [
   "/dashboard",
+  "/admin",
   "/projects/new",
   "/profile",
   "/interests",
   "/agreements",
+  "/notifications",
 ];
 
 /** Dynamic project-edit pages (/projects/{id}/edit) are owner-only. */
@@ -84,7 +86,11 @@ export default function middleware(request) {
   // Bare /dashboard → redirect to role-specific dashboard.
   if (isAuthed && path === "/dashboard") {
     const target =
-      role === "investor" ? "/dashboard/investor" : "/dashboard/owner";
+      role === "investor"
+        ? "/dashboard/investor"
+        : role === "admin"
+          ? "/admin/analytics"
+          : "/dashboard/owner";
     return NextResponse.redirect(new URL(`/${locale}${target}`, request.url));
   }
 
@@ -99,6 +105,11 @@ export default function middleware(request) {
   // /interests/received is idea-owner only, /interests/sent is investor only.
   const isReceivedBoard = path === "/interests/received" || path.startsWith("/interests/received/");
   const isSentBoard = path === "/interests/sent" || path.startsWith("/interests/sent/");
+
+  // EPIC-12: /admin/* is admin-only (admin-api.md §3 · US-061 S5). Admins are
+  // seeded, never registered publicly (الدستور IV) — so anyone else reaching
+  // here is redirected to their own dashboard with an unauthorized_role toast.
+  const isAdminArea = path === "/admin" || path.startsWith("/admin/");
 
   if (isAuthed && (isOwnerDashboard || isInvestorDashboard || isReceivedBoard || isSentBoard) && role) {
     const mismatch =
@@ -123,6 +134,22 @@ export default function middleware(request) {
     }
   }
 
+  // Non-admin → /admin: bounce to the role's dashboard with the same toast.
+  if (isAuthed && isAdminArea && role !== "admin") {
+    const target =
+      role === "investor"
+        ? "/dashboard/investor"
+        : role === "idea_owner"
+          ? "/dashboard/owner"
+          : null;
+
+    if (target) {
+      const dest = new URL(`/${locale}${target}`, request.url);
+      dest.searchParams.set("error", "unauthorized_role");
+      return NextResponse.redirect(dest);
+    }
+  }
+
   // Authed → auth pages: send them to their dashboard.
   // استثناء: غير المفعّل يُسمح له بالبقاء على /verify-otp لإدخال رمز التفعيل
   // (الدستور V) — وإلا لانتهى به الأمر في حلقة إعادة توجيه.
@@ -130,7 +157,11 @@ export default function middleware(request) {
     const isVerifyOtp = path === "/verify-otp";
     if (!(isVerifyOtp && !isVerified)) {
       const dashboard =
-        role === "investor" ? `/${locale}/dashboard/investor` : `/${locale}/dashboard/owner`;
+        role === "investor"
+          ? `/${locale}/dashboard/investor`
+          : role === "admin"
+            ? `/${locale}/admin/analytics`
+            : `/${locale}/dashboard/owner`;
       return NextResponse.redirect(new URL(dashboard, request.url));
     }
   }

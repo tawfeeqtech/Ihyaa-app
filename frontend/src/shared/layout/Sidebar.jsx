@@ -39,7 +39,14 @@ export function Sidebar({ role, userName }) {
     { href: "/interests/sent", label: t("sentInterests"), icon: PaperPlaneTilt },
   ];
 
-  const items = role === "idea_owner" ? ownerItems : investorItems;
+  // EPIC-12: admins are seeded (never registered) and see only the analytics
+  // area plus profile/logout (الدستور IV).
+  const adminItems = [
+    { href: "/admin/analytics", label: t("adminAnalytics"), icon: ChartBar },
+  ];
+
+  const items =
+    role === "idea_owner" ? ownerItems : role === "admin" ? adminItems : investorItems;
 
   function handleLogout() {
     document.cookie = "ihyaa_token=;path=/;max-age=0";
@@ -83,7 +90,9 @@ export function Sidebar({ role, userName }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-text-primary">{userName}</p>
-            <p className="text-xs text-text-secondary">{t(role === "idea_owner" ? "roleOwner" : "roleInvestor")}</p>
+            <p className="text-xs text-text-secondary">
+              {t(role === "idea_owner" ? "roleOwner" : role === "admin" ? "roleAdmin" : "roleInvestor")}
+            </p>
           </div>
         </div>
         <Link
