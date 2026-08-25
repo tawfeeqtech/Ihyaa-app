@@ -2,75 +2,43 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\InterestStatus;
-use App\Enums\InterestType;
+use App\Http\Requests\RejectInterestRequest;
+use App\Http\Requests\StoreInterestRequest;
+use App\Http\Resources\InterestResource;
 use App\Models\Interest;
-use App\Models\Notification;
 use App\Models\Project;
-use App\Services\AgreementPdfService;
+use App\Services\InterestService;
 use App\Support\Traits\ApiResponse;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 /**
- * طلبات الاهتمام — SRS-API-22..27 · SRS-F08.
- * store (Investor) · received (صاحب الفكرة) · sent (المستثمر)
- * accept/reject (صاحب المشروع فقط) · cancel (المستثمر — UC-07 E2).
+ * طلبات الاهتمام — SRS-API-22..27 · SRS-F08 · EPIC-08.
+ *
+ * Controller رفيع — كل منطق الأعمال في InterestService:
+ *  store   (Investor)   → InterestService::send    (تحقق تسلسلي + معاملة + إشعار حرج)
+ *  received(صاحب الفكرة) → InterestService::received (ترتيب DESC + فلترة + عدّادات)
+ *  sent    (المستثمر)    → InterestService::sent
+ *  accept/reject (صاحب المشروع فقط — Policy) → InterestService::accept/reject
+ *  cancel  (المستثمر — UC-07 E2) → InterestService::cancel
  */
 class InterestController
 {
-    use ApiResponse;
+    use ApiResponse, AuthorizesRequests;
+
+    public function __construct(
+        private readonly InterestService $service,
+    ) {
+    }
 
     // ——————————————————————— إرسال طلب (RL-INV-04 · 10/دقيقة) ———————————————————————
 
-    public function store(Request $request, Project $project): JsonResponse
+    public function store(StoreInterestRequest $request, Project $project): JsonResponse
     {
-        $data = $request->validate([
-            'interest_type' => ['required', Rule::enum(InterestType::class)],
-            'message' => ['nullable', 'string', 'max:500'],
-        ]);
+        $interest = $this->service->send($request->user(), $project, $request->validated());
 
-        $investor = $request->user();
-
-        // لا يمكن إبداء الاهتمام بمشروعه الخاص
-        if ($project->isOwner($investor)) {
-            return $this->error('OWN_PROJECT', __('interests.own_project'), 422);
-        }
-
-        // منع الطلب النشط المكرر (SRS-F08-03) — فحص ودّي قبل خطأ الـ DB
-        $active = $project->interests()
-            ->where('investor_id', $investor->id)
-            ->whereIn('status', [InterestStatus::PENDING, InterestStatus::ACCEPTED])
-            ->exists();
-
-        if ($active) {
-            return $this->conflict('INTEREST_ALREADY_EXISTS', __('interests.duplicate'));
-        }
-
-        $interest = $project->interests()->create([
-            'investor_id' => $investor->id,
-            'interest_type' => $data['interest_type'],
-            'message' => $data['message'] ?? null,
-            'status' => InterestStatus::PENDING,
-        ]);
-
-        // إشعار حرج + بث Reverb فوري (interest.created — < 5 ثوانٍ)
-        Notification::pushNotification(
-            $project->user_id,
-            'interest_received',
-            __('notifications.interest_received_title', ['project' => $project->title]),
-            $investor->name.' — '.$data['interest_type'],
-            [
-                'project_id' => $project->id,
-                'interest_id' => $interest->id,
-                'url' => '/projects/'.$project->id,
-            ],
-            true,
-        );
-
-        return $this->created($interest->toApiArray(), __('interests.sent'));
+        return $this->created(InterestResource::make($interest), __('interests.sent'));
     }
 
     // ——————————————————————— طلبات مستلمة (صاحب الفكرة — RL-SH-01 · 30/دقيقة) ———————————————————————
@@ -84,20 +52,28 @@ class InterestController
         }
 
         $request->validate([
-            'status' => ['nullable', Rule::enum(InterestStatus::class)],
+            'status' => ['nullable', 'string'],
+            'per_page' => ['nullable', 'integer', 'between:1,50'],
         ]);
 
-        $interests = $user->interestsReceived()
-            ->with(['project.category', 'investor'])
-            ->when($request->input('status'), fn ($q, $status) => $q->where('interests.status', $status))
-            ->orderByDesc('interests.created_at')
-            ->paginate(20);
+        [$interests, $counters] = $this->service->received($user, $request->only(['status', 'per_page']));
 
-        $includeContacts = $request->input('status') === InterestStatus::ACCEPTED->value;
-
-        return $this->paginated(
-            $interests,
-            $interests->map(fn (Interest $i) => $i->toApiArray($includeContacts))
+        return $this->success(
+            // items() لا paginator — ليمنع ResourceCollection من لفّ data/links/meta
+            // داخل نفسه (contract §2: data مصفوفة + meta/أخرى على المستوى الأعلى).
+            InterestResource::collection($interests->items()),
+            'ok',
+            200,
+            [
+                'meta' => [
+                    'current_page' => $interests->currentPage(),
+                    'per_page' => $interests->perPage(),
+                    'total' => $interests->total(),
+                    'last_page' => $interests->lastPage(),
+                ],
+                // عدّادات GROUP BY واحدة — تحديث عند التحميل (US-046 السيناريو 3).
+                'counters' => $counters,
+            ],
         );
     }
 
@@ -105,16 +81,34 @@ class InterestController
 
     public function sent(Request $request): JsonResponse
     {
-        $interests = $request->user()->interestsSent()
-            ->with(['project.category'])
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $user = $request->user();
 
-        return $this->paginated(
-            $interests,
-            $interests->map(fn (Interest $i) => array_merge($i->toApiArray(), [
-                'project' => $i->project?->toCardArray(),
-            ]))
+        if (! $user->isInvestor()) {
+            return $this->forbidden();
+        }
+
+        $request->validate([
+            'status' => ['nullable', 'string'],
+            'per_page' => ['nullable', 'integer', 'between:1,50'],
+        ]);
+
+        [$interests, $counters] = $this->service->sent($user, $request->only(['status', 'per_page']));
+
+        return $this->success(
+            // items() لا paginator — ليمنع ResourceCollection من لفّ data/links/meta
+            // داخل نفسه (contract §3: data مصفوفة + meta/أخرى على المستوى الأعلى).
+            InterestResource::collection($interests->items()),
+            'ok',
+            200,
+            [
+                'meta' => [
+                    'current_page' => $interests->currentPage(),
+                    'per_page' => $interests->perPage(),
+                    'total' => $interests->total(),
+                    'last_page' => $interests->lastPage(),
+                ],
+                'counters' => $counters,
+            ],
         );
     }
 
@@ -122,111 +116,32 @@ class InterestController
 
     public function accept(Request $request, Interest $interest): JsonResponse
     {
-        $user = $request->user();
+        $this->authorize('accept', $interest);
 
-        if (! $interest->project->isOwner($user)) {
-            return $this->forbidden();
-        }
+        $accepted = $this->service->accept($interest);
 
-        if ($interest->status === InterestStatus::CANCELLED) {
-            return $this->conflict('INTEREST_CANCELLED', __('interests.cancelled_error')); // UC-06 E3
-        }
-
-        if ($interest->status !== InterestStatus::PENDING) {
-            return $this->unprocessable('INVALID_INTEREST_STATUS', __('interests.invalid_status'));
-        }
-
-        // إنشاء مستند الاتفاق PDF (أسماء الطرفين — < 5 ثوانٍ · SRS-F08-05)
-        $pdfPath = app(AgreementPdfService::class)->generate($interest);
-
-        $interest->forceFill([
-            'status' => InterestStatus::ACCEPTED,
-            'agreement_pdf_path' => $pdfPath,
-            'accepted_at' => now(),
-        ])->save();
-
-        // إشعار غير حرج للمستثمر (عند إعادة التحميل)
-        Notification::pushNotification(
-            $interest->investor_id,
-            'interest_accepted',
-            __('notifications.interest_accepted_title', ['project' => $interest->project->title]),
-            null,
-            ['project_id' => $interest->project_id, 'interest_id' => $interest->id, 'url' => '/projects/'.$interest->project_id],
-            false,
-        );
-
-        return $this->success($interest->fresh()->toApiArray(includeContacts: true), __('interests.accepted'));
+        return $this->success(InterestResource::make($accepted), __('interests.accepted'));
     }
 
     // ——————————————————————— رفض (صاحب المشروع — RL-SH-03 · 10/دقيقة) ———————————————————————
 
-    public function reject(Request $request, Interest $interest): JsonResponse
+    public function reject(RejectInterestRequest $request, Interest $interest): JsonResponse
     {
-        $user = $request->user();
+        $this->authorize('reject', $interest);
 
-        if (! $interest->project->isOwner($user)) {
-            return $this->forbidden();
-        }
+        $rejected = $this->service->reject($interest, $request->validated()['rejection_reason'] ?? null);
 
-        if ($interest->status === InterestStatus::CANCELLED) {
-            return $this->conflict('INTEREST_CANCELLED', __('interests.cancelled_error')); // UC-06 E3
-        }
-
-        if ($interest->status !== InterestStatus::PENDING) {
-            return $this->unprocessable('INVALID_INTEREST_STATUS', __('interests.invalid_status'));
-        }
-
-        $data = $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $interest->reject($data['reason'] ?? null);
-
-        Notification::pushNotification(
-            $interest->investor_id,
-            'interest_rejected',
-            __('notifications.interest_rejected_title', ['project' => $interest->project->title]),
-            $data['reason'] ?? null,
-            ['project_id' => $interest->project_id, 'interest_id' => $interest->id, 'url' => '/projects/'.$interest->project_id],
-            false,
-        );
-
-        return $this->success($interest->fresh()->toApiArray(), __('interests.rejected'));
+        return $this->success(InterestResource::make($rejected), __('interests.rejected'));
     }
 
-    /**
-     * إلغاء (المستثمر — pending أو accepted) — UC-07 E2.
-     * بعد القبول: يُحذف ملف PDF ويُخفى البريد.
-     */
+    // ——————————————————————— إلغاء (المستثمر — UC-07 E2 · UC-12) ———————————————————————
+
     public function cancel(Request $request, Interest $interest): JsonResponse
     {
-        $user = $request->user();
+        $this->authorize('cancel', $interest);
 
-        if ((int) $interest->investor_id !== (int) $user->id) {
-            return $this->forbidden();
-        }
+        $cancelled = $this->service->cancel($interest);
 
-        if (! $interest->status->isActive()) {
-            return $this->unprocessable('INVALID_INTEREST_STATUS', __('interests.invalid_status'));
-        }
-
-        // إلغاء بعد القبول → حذف ملف PDF (UC-07 E2)
-        if ($interest->status === InterestStatus::ACCEPTED && $interest->agreement_pdf_path) {
-            Storage::disk('public')->delete($interest->agreement_pdf_path);
-            $interest->forceFill(['agreement_pdf_path' => null])->save();
-        }
-
-        $interest->cancel();
-
-        Notification::pushNotification(
-            $interest->project->user_id,
-            'interest_cancelled',
-            __('notifications.interest_cancelled_title', ['project' => $interest->project->title]),
-            null,
-            ['project_id' => $interest->project_id, 'interest_id' => $interest->id, 'url' => '/projects/'.$interest->project_id],
-            false,
-        );
-
-        return $this->success($interest->fresh()->toApiArray(), __('interests.cancelled'));
+        return $this->success(InterestResource::make($cancelled), __('interests.cancelled'));
     }
 }

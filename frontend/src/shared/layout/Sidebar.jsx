@@ -4,8 +4,10 @@ import {
   ChartBar,
   Compass,
   FolderPlus,
+  PaperPlaneTilt,
   SignOut,
   SquaresFour,
+  Tray,
   UserCircle,
 } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
@@ -28,11 +30,13 @@ export function Sidebar({ role, userName }) {
     { href: "/dashboard/owner", label: t("overview"), icon: SquaresFour },
     { href: "/projects/new", label: t("newProject"), icon: FolderPlus },
     { href: "/projects", label: t("exploreProjects"), icon: Compass },
+    { href: "/interests/received", label: t("receivedInterests"), icon: Tray },
   ];
 
   const investorItems = [
     { href: "/dashboard/investor", label: t("overview"), icon: SquaresFour },
     { href: "/projects", label: t("exploreProjects"), icon: Compass },
+    { href: "/interests/sent", label: t("sentInterests"), icon: PaperPlaneTilt },
   ];
 
   const items = role === "idea_owner" ? ownerItems : investorItems;

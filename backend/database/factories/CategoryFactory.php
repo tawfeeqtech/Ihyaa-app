@@ -13,9 +13,9 @@ class CategoryFactory extends Factory
     /**
      * Define the model's default state.
      *
-     * يستخدم قائمة التصنيفات القانونية (15) بدل slug عشوائي من Faker —
-     * حتى لا يتلوث DB التطوير بسلَغات غير معروفة للواجهة (كانت تسبب
-     * undefined في sectorLabels). مصدر الحقيقة الوحيد هو CategorySeeder.
+     * يولد slug قانوني فريداً من القائمة الـ 15 (عبر unique) حتى لا يتلوث
+     * DB التطوير بسلَغات عشوائية غير معروفة للواجهة، مع إضافة لاحقة رقمية
+     * عند تجاوز الـ 15 لضمان التفرد في الاختبارات. مصدر الحقيقة هو CategorySeeder.
      *
      * @return array<string, mixed>
      */
@@ -32,11 +32,17 @@ class CategoryFactory extends Factory
             'other' => 'أخرى',
         ];
 
-        $slug = fake()->randomElement(array_keys($canonical));
+        $slugs = array_keys($canonical);
+
+        // تسلسل ثابت لضمان التفرد داخل الاختبار: أول 15 = القانونية، ثم لاحقة رقمية.
+        static $seq = 0;
+        $seq++;
+        $base = $slugs[($seq - 1) % count($slugs)];
+        $slug = $seq <= count($slugs) ? $base : $base.'-'.$seq;
 
         return [
-            'name_ar' => $canonical[$slug],
-            'name_en' => ucfirst(str_replace('_', ' ', $slug)),
+            'name_ar' => $canonical[$base],
+            'name_en' => ucfirst(str_replace('_', ' ', $base)),
             'slug' => $slug,
             'icon' => fake()->randomElement(['bank', 'robot', 'cloud', 'truck']),
             'sort_order' => fake()->numberBetween(1, 20),

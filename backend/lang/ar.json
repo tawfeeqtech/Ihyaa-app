@@ -69,6 +69,9 @@
     "interests.cancelled": "تم إلغاء الطلب",
     "interests.cancelled_error": "لا يمكن التعامل مع طلب ملغي",
     "interests.invalid_status": "حالة الطلب لا تسمح بهذه العملية",
+    "interests.duplicate_interest": "لديك طلب نشط لهذا المشروع مسبقاً",
+    "interests.profile_incomplete": "أكمل ملف المستثمر أولاً لإرسال طلب الاهتمام",
+    "interests.project_unavailable": "المشروع غير متاح حالياً لإبداء الاهتمام",
 
     "notifications.interest_received_title": "طلب اهتمام جديد: :project",
     "notifications.interest_accepted_title": "تم قبول اهتمامك بمشروع :project",

@@ -11,7 +11,13 @@ export const EMAIL_COOKIE = "ihyaa_email";
 export const VERIFIED_COOKIE = "ihyaa_verified";
 
 /** Paths that are only reachable when authenticated. */
-const PROTECTED_PREFIXES = ["/dashboard", "/projects/new", "/profile"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/projects/new",
+  "/profile",
+  "/interests",
+  "/agreements",
+];
 
 /** Dynamic project-edit pages (/projects/{id}/edit) are owner-only. */
 function isProjectEditPath(path) {
@@ -89,10 +95,17 @@ export default function middleware(request) {
   const isInvestorDashboard =
     path === "/dashboard/investor" || path.startsWith("/dashboard/investor/");
 
-  if (isAuthed && (isOwnerDashboard || isInvestorDashboard) && role) {
+  // EPIC-08 boards are role-scoped (interest-api.md permission matrix):
+  // /interests/received is idea-owner only, /interests/sent is investor only.
+  const isReceivedBoard = path === "/interests/received" || path.startsWith("/interests/received/");
+  const isSentBoard = path === "/interests/sent" || path.startsWith("/interests/sent/");
+
+  if (isAuthed && (isOwnerDashboard || isInvestorDashboard || isReceivedBoard || isSentBoard) && role) {
     const mismatch =
       (isOwnerDashboard && role !== "idea_owner") ||
-      (isInvestorDashboard && role !== "investor");
+      (isInvestorDashboard && role !== "investor") ||
+      (isReceivedBoard && role !== "idea_owner") ||
+      (isSentBoard && role !== "investor");
 
     if (mismatch) {
       const target =

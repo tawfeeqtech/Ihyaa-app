@@ -31,7 +31,15 @@ export default async function DashboardLayout({ children }) {
             aria-label={t("mobileNavigation")}
             className="flex gap-2 overflow-x-auto pb-1 lg:hidden"
           >
-            <SidebarMobileLinks role={role} labels={{ overview: t("overview"), newProject: t("newProject") }} />
+            <SidebarMobileLinks
+              role={role}
+              labels={{
+                overview: t("overview"),
+                newProject: t("newProject"),
+                receivedInterests: t("receivedInterests"),
+                sentInterests: t("sentInterests"),
+              }}
+            />
           </nav>
         )}
 
@@ -67,6 +75,12 @@ function SidebarMobileLinks({ role, labels }) {
         className="shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white"
       >
         {labels.newProject}
+      </Link>
+      <Link
+        href={role === "investor" ? "/interests/sent" : "/interests/received"}
+        className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+      >
+        {role === "investor" ? labels.sentInterests : labels.receivedInterests}
       </Link>
     </>
   );

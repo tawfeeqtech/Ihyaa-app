@@ -46,6 +46,8 @@
     "overview": "لوحة التحكم",
     "newProject": "مشروع جديد",
     "exploreProjects": "استكشاف المشاريع",
+    "receivedInterests": "الطلبات الواردة",
+    "sentInterests": "الطلبات المرسلة",
     "profile": "الملف الشخصي",
     "logout": "تسجيل الخروج",
     "roleOwner": "صاحب فكرة",
@@ -309,6 +311,7 @@
       "loginRequired": "يرجى تسجيل الدخول أولاً",
       "interested": "أنا مهتم",
       "interestSent": "تم إرسال اهتمامك — سيتواصل معك صاحب المشروع",
+      "interestSentButton": "تم الإرسال",
       "save": "حفظ",
       "saved": "محفوظ",
       "unsaved": "أُزيل من المحفوظات",
@@ -666,6 +669,125 @@
       "savePrefs": "حفظ التفضيلات",
       "prefSaved": "تم حفظ تفضيلاتك — ستُخصص اقتراحات الاستكشاف",
       "prefsNote": "تُستخدم تفضيلاتك لتخصيص صفحة الاستكشاف (المطابقة الذكية الكاملة في v1.1)"
+    }
+  },
+  "interests": {
+    "board": {
+      "receivedTitle": "طلبات الاهتمام الواردة",
+      "receivedSubtitle": "طلبات المستثمرين المهتمين بمشاريعك — قبول أو رفض أو مراجعة",
+      "sentTitle": "الاهتمامات المرسلة",
+      "sentSubtitle": "متابعة طلبات الاهتمام التي أرسلتها إلى أصحاب المشاريع",
+      "all": "الكل",
+      "filterStatus": "تصفية حسب الحالة",
+      "counters": {
+        "total": "الكل",
+        "pending": "معلق",
+        "accepted": "مقبول",
+        "rejected": "مرفوض",
+        "cancelled": "ملغي"
+      },
+      "loading": "جارٍ التحميل…",
+      "loadError": "تعذّر تحميل الطلبات",
+      "pagination": "ترقيم الصفحات",
+      "prev": "السابق",
+      "next": "التالي"
+    },
+    "status": {
+      "pending": "معلق",
+      "accepted": "مقبول",
+      "rejected": "مرفوض",
+      "cancelled": "ملغي"
+    },
+    "types": {
+      "investment": "استثمار",
+      "investmentDesc": "أرغب في تمويل هذا المشروع",
+      "technical_development": "تطوير تقني",
+      "technical_developmentDesc": "أرغب في المساهمة تقنياً في تطوير المشروع",
+      "consultation": "استشارة",
+      "consultationDesc": "أرغب في تقديم استشارة أو خبرة"
+    },
+    "modal": {
+      "title": "إبداء الاهتمام",
+      "subtitle": "اختر نوع الاهتمام واكتب رسالة قصيرة لصاحب المشروع",
+      "typeLabel": "نوع الاهتمام",
+      "typeRequired": "يرجى اختيار نوع الاهتمام",
+      "messageLabel": "رسالتك",
+      "messagePlaceholder": "اكتب رسالة توضح اهتمامك…",
+      "charCount": "{count}/{max}",
+      "cancel": "إلغاء",
+      "send": "إرسال الاهتمام",
+      "sending": "جارٍ الإرسال…"
+    },
+    "errors": {
+      "duplicate": "سبق إرسال طلب لهذا المشروع",
+      "profileIncomplete": "يرجى إكمال ملفك الشخصي أولاً",
+      "projectUnavailable": "عذراً، هذا المشروع غير متاح حالياً",
+      "selfInterest": "لا يمكنك إبداء الاهتمام بمشروعك",
+      "invalidType": "يرجى اختيار نوع الاهتمام",
+      "network": "تعذّر الإرسال — تحقق من اتصالك وحاول مجدداً",
+      "retry": "إعادة المحاولة",
+      "acceptFailed": "تعذّر قبول الطلب",
+      "rejectFailed": "تعذّر رفض الطلب",
+      "cancelFailed": "تعذّر إلغاء الطلب",
+      "cancelSuccess": "تم إلغاء الطلب"
+    },
+    "received": {
+      "investor": "المستثمر",
+      "project": "المشروع",
+      "message": "الرسالة",
+      "type": "نوع الاهتمام",
+      "status": "الحالة",
+      "rejectionReason": "سبب الرفض",
+      "investorEmail": "بريد المستثمر",
+      "viewAgreement": "عرض الاتفاقية"
+    },
+    "sent": {
+      "aiScore": "التقييم",
+      "status": "الحالة",
+      "rejectionReason": "سبب الرفض",
+      "cancel": "إلغاء الطلب",
+      "viewAgreement": "عرض الاتفاقية",
+      "ownerEmail": "بريد صاحب الفكرة"
+    },
+    "buttons": {
+      "accept": "قبول",
+      "reject": "رفض",
+      "rejectionReasonLabel": "سبب الرفض (اختياري)",
+      "rejectionReasonPlaceholder": "اكتب سبب الرفض…",
+      "confirmAcceptTitle": "تأكيد قبول الطلب",
+      "confirmAcceptBody": "سيُنشأ مستند اتفاقية PDF ويُكشف بريدك الإلكتروني لصاحب المشروع. متابعة؟",
+      "confirmRejectTitle": "تأكيد رفض الطلب",
+      "confirmRejectBody": "هل تريد رفض طلب الاهتمام هذا؟",
+      "confirm": "تأكيد",
+      "cancel": "إلغاء",
+      "cancelledNote": "تم إلغاء هذا الطلب من قبل المستثمر"
+    },
+    "confirmCancel": {
+      "title": "تأكيد إلغاء الطلب",
+      "body": "سيتم إلغاء طلب الاهتمام وإخفاء أي بريد مكشوف. متابعة؟",
+      "confirm": "نعم، إلغاء",
+      "cancel": "تراجع"
+    },
+    "agreement": {
+      "title": "اتفاقية التعاون",
+      "subtitle": "مستند PDF يجمع الطرفين بعد قبول طلب الاهتمام",
+      "download": "تحميل PDF",
+      "preview": "معاينة المستند",
+      "previewError": "تعذّر تحميل المستند — حاول مجدداً",
+      "retry": "إعادة المحاولة",
+      "project": "المشروع",
+      "createdAt": "تاريخ الإنشاء",
+      "ideaOwner": "صاحب الفكرة",
+      "investor": "المستثمر",
+      "notFoundTitle": "الاتفاقية غير موجودة",
+      "notFoundDesc": "تعذّر العثور على هذه الاتفاقية أو ليس لديك صلاحية الوصول إليها",
+      "backToDashboard": "العودة إلى لوحة التحكم"
+    },
+    "empty": {
+      "receivedTitle": "لا توجد طلبات اهتمام",
+      "receivedDesc": "عندما يُبدي مستثمر اهتمامه بأحد مشاريعك ستظهر طلباته هنا",
+      "sentTitle": "لم تُرسل أي اهتمامات بعد",
+      "sentDesc": "اضغط زر «أنا مهتم» في أي مشروع لتظهر اهتماماتك هنا"
     }
   },
   "profile": {

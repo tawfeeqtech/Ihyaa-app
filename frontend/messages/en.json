@@ -46,6 +46,8 @@
     "overview": "Overview",
     "newProject": "New project",
     "exploreProjects": "Explore projects",
+    "receivedInterests": "Received interests",
+    "sentInterests": "Sent interests",
     "profile": "Profile",
     "logout": "Sign out",
     "roleOwner": "Idea owner",
@@ -309,6 +311,7 @@
       "loginRequired": "Please sign in first",
       "interested": "I am interested",
       "interestSent": "Interest sent — the owner will reach out to you",
+      "interestSentButton": "Sent",
       "save": "Save",
       "saved": "Saved",
       "unsaved": "Removed from saved",
@@ -666,6 +669,125 @@
       "savePrefs": "Save preferences",
       "prefSaved": "Preferences saved — discover suggestions will be personalized",
       "prefsNote": "Your preferences personalize the Discover tab (full AI matching lands in v1.1)"
+    }
+  },
+  "interests": {
+    "board": {
+      "receivedTitle": "Received interest requests",
+      "receivedSubtitle": "Requests from investors interested in your projects — accept, reject or review",
+      "sentTitle": "Sent interests",
+      "sentSubtitle": "Follow the interest requests you sent to project owners",
+      "all": "All",
+      "filterStatus": "Filter by status",
+      "counters": {
+        "total": "All",
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "loading": "Loading…",
+      "loadError": "Failed to load requests",
+      "pagination": "Pagination",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "types": {
+      "investment": "Investment",
+      "investmentDesc": "I want to fund this project",
+      "technical_development": "Technical development",
+      "technical_developmentDesc": "I want to contribute technically",
+      "consultation": "Consultation",
+      "consultationDesc": "I want to offer advice or expertise"
+    },
+    "modal": {
+      "title": "Express interest",
+      "subtitle": "Pick an interest type and write a short message to the project owner",
+      "typeLabel": "Interest type",
+      "typeRequired": "Please select an interest type",
+      "messageLabel": "Your message",
+      "messagePlaceholder": "Write a short message explaining your interest…",
+      "charCount": "{count}/{max}",
+      "cancel": "Cancel",
+      "send": "Send interest",
+      "sending": "Sending…"
+    },
+    "errors": {
+      "duplicate": "You already expressed interest in this project",
+      "profileIncomplete": "Please complete your profile first",
+      "projectUnavailable": "Sorry, this project is not available right now",
+      "selfInterest": "You cannot express interest in your own project",
+      "invalidType": "Please select an interest type",
+      "network": "Could not send — check your connection and try again",
+      "retry": "Try again",
+      "acceptFailed": "Could not accept the request",
+      "rejectFailed": "Could not reject the request",
+      "cancelFailed": "Could not cancel the request",
+      "cancelSuccess": "Request cancelled"
+    },
+    "received": {
+      "investor": "Investor",
+      "project": "Project",
+      "message": "Message",
+      "type": "Interest type",
+      "status": "Status",
+      "rejectionReason": "Rejection reason",
+      "investorEmail": "Investor email",
+      "viewAgreement": "View agreement"
+    },
+    "sent": {
+      "aiScore": "Score",
+      "status": "Status",
+      "rejectionReason": "Rejection reason",
+      "cancel": "Cancel request",
+      "viewAgreement": "View agreement",
+      "ownerEmail": "Idea owner email"
+    },
+    "buttons": {
+      "accept": "Accept",
+      "reject": "Reject",
+      "rejectionReasonLabel": "Rejection reason (optional)",
+      "rejectionReasonPlaceholder": "Write the reason for rejecting…",
+      "confirmAcceptTitle": "Confirm accepting the request",
+      "confirmAcceptBody": "A PDF agreement will be created and your email disclosed to the project owner. Continue?",
+      "confirmRejectTitle": "Confirm rejecting the request",
+      "confirmRejectBody": "Do you want to reject this interest request?",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "cancelledNote": "This request was cancelled by the investor"
+    },
+    "confirmCancel": {
+      "title": "Confirm cancelling the request",
+      "body": "This will cancel the interest request and hide any disclosed email. Continue?",
+      "confirm": "Yes, cancel",
+      "cancel": "Go back"
+    },
+    "agreement": {
+      "title": "Collaboration agreement",
+      "subtitle": "A PDF document linking both parties after an interest request is accepted",
+      "download": "Download PDF",
+      "preview": "Document preview",
+      "previewError": "Could not load the document — try again",
+      "retry": "Try again",
+      "project": "Project",
+      "createdAt": "Created on",
+      "ideaOwner": "Idea owner",
+      "investor": "Investor",
+      "notFoundTitle": "Agreement not found",
+      "notFoundDesc": "This agreement could not be found or you do not have access to it",
+      "backToDashboard": "Back to dashboard"
+    },
+    "empty": {
+      "receivedTitle": "No interest requests",
+      "receivedDesc": "When an investor expresses interest in one of your projects, their requests will appear here",
+      "sentTitle": "No interests sent yet",
+      "sentDesc": "Press \"I am interested\" on any project to see your interests here"
     }
   },
   "profile": {

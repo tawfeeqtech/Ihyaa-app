@@ -65,6 +65,18 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // EPIC-08: استثناءات الاهتمام/الاتفاق (DuplicateInterest, ProfileIncomplete, ...)
+        $exceptions->renderable(function (App\Exceptions\Interest\InterestException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(array_merge([
+                    'success' => false,
+                    'code' => $e->code(),
+                    'message' => $e->getMessage(),
+                    'errors' => $e->errors() ?: null,
+                ], $e->extra()), $e->status());
+            }
+        });
+
         // 422 موحّدة مع كود VALIDATION_FAILED
         $exceptions->renderable(function (ValidationException $e, Request $request) {
             if ($request->is('api/*')) {

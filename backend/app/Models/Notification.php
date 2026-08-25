@@ -80,7 +80,7 @@ class Notification extends Model
     public function broadcastCritical(): void
     {
         $eventClass = match ($this->type) {
-            'interest_received' => InterestCreated::class,
+            'interest_received', 'interest_new' => InterestCreated::class,
             'evaluation_completed' => EvaluationCompleted::class,
             default => null,
         };

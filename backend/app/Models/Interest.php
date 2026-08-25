@@ -17,10 +17,17 @@ class Interest extends Model
         'status',
         'rejection_reason',
         'agreement_pdf_path',
+        'agreement_id',          // T056 — رابط مستند الاتفاق (يُملأ عند نجاح توليد PDF)
         'accepted_at',
         'rejected_at',
         'cancelled_at',
     ];
+
+    /**
+     * active_dup_key عمود مولّد (VIRTUAL) تديره قاعدة البيانات — T041/T043.
+     * لا يُكتب من التطبيق؛ يُقيَّم إلى investor_id للحالات النشطة فقط و NULL
+     * لغيرها، مع فهرس فريد (project_id, active_dup_key) يمنع التكرار النشط.
+     */
 
     /**
      * @return array<string, string>
@@ -46,9 +53,26 @@ class Interest extends Model
         return $this->belongsTo(User::class, 'investor_id');
     }
 
+    public function agreement(): BelongsTo
+    {
+        return $this->belongsTo(Agreement::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status->isActive();
+    }
+
+    /** هل المستخدم طرف في الطلب؟ (المستثمر أو مالك المشروع) — T053/InterestPolicy. */
+    public function isParty(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->isAdmin()
+            || (int) $this->investor_id === (int) $user->id
+            || $this->project?->isOwner($user);
     }
 
     // ——————————————————————— آلة الحالات (SRS-F08) ———————————————————————

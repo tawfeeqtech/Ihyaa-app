@@ -214,7 +214,10 @@ Route::middleware(['auth:sanctum', 'token.refresh'])->group(function () {
     */
     Route::middleware(['investor', 'email.verified'])->group(function () {
 
+        // withTrashed: المشروع المحذوف (سلة) يصل إلى الخدمة → 422 project_unavailable
+        // بدل 404 (UC-06 E2 · contract §1).
         Route::post('/projects/{project}/interest', [InterestController::class, 'store'])
+            ->withTrashed()
             ->middleware('throttle:investor.write');                 // RL-INV-04 · 10/دقيقة
 
         Route::post('/projects/{project}/save', [SavedProjectController::class, 'save'])

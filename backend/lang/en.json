@@ -69,6 +69,9 @@
     "interests.cancelled": "Request cancelled",
     "interests.cancelled_error": "Cannot act on a cancelled request",
     "interests.invalid_status": "Current status does not allow this action",
+    "interests.duplicate_interest": "You already have an active request for this project",
+    "interests.profile_incomplete": "Complete your investor profile first to send an interest request",
+    "interests.project_unavailable": "This project is not available for interest right now",
 
     "notifications.interest_received_title": "New interest: :project",
     "notifications.interest_accepted_title": "Your interest in :project was accepted",

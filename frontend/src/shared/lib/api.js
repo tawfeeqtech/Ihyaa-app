@@ -13,6 +13,9 @@
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
+/** Exported so feature clients can do raw fetches (e.g. PDF blobs) against the API. */
+export const API_BASE_URL = BASE_URL;
+
 export const AUTH_COOKIE = "ihyaa_token";
 export const ROLE_COOKIE = "ihyaa_role";
 export const NAME_COOKIE = "ihyaa_name";

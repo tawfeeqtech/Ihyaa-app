@@ -44,6 +44,7 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
 import { projects, sectorLabels, statusLabels } from "@/features/projects/data/projects";
 import { api } from "@/shared/lib/api";
+import { InterestModal } from "@/features/interests/components/InterestModal";
 import { avatarHue, cn, initials } from "@/shared/utils";
 
 /**
@@ -105,6 +106,7 @@ export function ProjectDetail({ project }) {
 
   const [tab, setTab] = useState("overview");
   const [interestSent, setInterestSent] = useState(false);
+  const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [aiLoading, setAiLoading] = useState(true);
 
@@ -274,22 +276,22 @@ export function ProjectDetail({ project }) {
     { name: t("project.team.lead"), role: t("project.team.leadRole") },
   ];
 
-  async function handleInterested() {
+  // US-042: open the express-interest modal — the POST happens inside it so the
+  // investor can pick a type and write a message first.
+  function handleInterested() {
     if (!authed) {
       toast.info(t("detail.loginRequired"));
       router.push("/login");
       return;
     }
-    try {
-      await api.post(`/projects/${project.id}/interest`, {
-        message: "",
-        type: "investment",
-      });
-      setInterestSent(true);
-      toast.success(t("detail.interestSent"));
-    } catch (err) {
-      toast.error(err.body?.message ?? t("detail.interestError"));
-    }
+    setInterestModalOpen(true);
+  }
+
+  // US-042: the interest was sent → transform the button into "تم الإرسال"
+  // (non-re-clickable) and confirm with a toast.
+  function handleInterestSent() {
+    setInterestSent(true);
+    toast.success(t("detail.interestSent"));
   }
 
   const CaretComponent = locale === "ar" ? CaretLeft : CaretRight;
@@ -343,9 +345,13 @@ export function ProjectDetail({ project }) {
           </div>
 
           <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row">
-            <Button size="lg" onClick={handleInterested} disabled={interestSent} className="flex-1">
-              {interestSent ? t("detail.interestSent") : t("detail.interested")}
-            </Button>
+            {/* US-042 · US-043: the interest action is investor-only, not for the
+                project owner, and only while the project is active. */}
+            {viewer.ready && viewer.role === "investor" && !isOwner && (
+              <Button size="lg" onClick={handleInterested} disabled={interestSent} className="flex-1">
+                {interestSent ? t("detail.interestSentButton") : t("detail.interested")}
+              </Button>
+            )}
             <Button
               size="lg"
               variant="secondary"
@@ -883,6 +889,14 @@ export function ProjectDetail({ project }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Express-interest modal (US-042 · T036) */}
+      <InterestModal
+        open={interestModalOpen}
+        project={project}
+        onClose={() => setInterestModalOpen(false)}
+        onSent={handleInterestSent}
+      />
     </div>
   );
 }
