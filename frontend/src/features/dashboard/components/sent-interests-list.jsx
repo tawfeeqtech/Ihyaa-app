@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DownloadSimple, PaperPlaneTilt, XCircle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
@@ -13,6 +13,7 @@ import {
 } from "@/features/interests/lib/interest";
 import { cn } from "@/shared/utils";
 import { useToast } from "@/shared/components/Toast";
+import { useDialogFocus } from "@/shared/hooks/use-dialog-focus";
 
 /**
  * EPIC-11 · Sent-interests widget (US-058 · T090/T091) — dashboard-api.md §2.sent_interests.
@@ -53,15 +54,12 @@ export function SentInterestsList({ items, onCancelled, className }) {
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
 
-  // Close the confirmation dialog on Escape.
-  useEffect(() => {
-    if (cancellingId === null) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") closeDialog();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cancellingId]);
+  // Focus trap for the cancel-confirmation dialog: move focus in on open, cycle
+  // Tab, close on Escape, restore focus to the trigger on close.
+  const { containerRef: cancelDialogRef } = useDialogFocus({
+    open: cancellingId !== null,
+    onClose: closeDialog,
+  });
 
   function closeDialog() {
     setCancellingId(null);
@@ -214,8 +212,10 @@ export function SentInterestsList({ items, onCancelled, className }) {
               aria-hidden
             />
             <motion.div
+              ref={cancelDialogRef}
               role="alertdialog"
               aria-modal="true"
+              tabIndex={-1}
               aria-labelledby="cancel-interest-title"
               aria-describedby="cancel-interest-desc"
               initial={{ opacity: 0, scale: 0.95, y: 16 }}

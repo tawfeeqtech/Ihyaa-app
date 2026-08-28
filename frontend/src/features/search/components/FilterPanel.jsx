@@ -73,7 +73,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
                 aria-checked={active}
                 onClick={() => setParams({ sector: active ? "" : slug })}
                 className={cn(
-                  "flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-sm transition-colors",
+                  "flex min-h-12 items-center justify-between gap-2 rounded-lg px-3 text-sm transition-colors",
                   active
                     ? "bg-accent-100 text-primary-600 font-medium"
                     : "text-text-secondary hover:bg-surface-0 hover:text-text-primary"
@@ -117,7 +117,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
             value={params.score_min}
             onChange={setScore("score_min")}
             onFocus={() => setScoreOpen(true)}
-            className="h-11 w-full rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary placeholder:text-text-secondary/60 focus:border-primary-600 focus:outline-none"
+            className="h-12 w-full rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary placeholder:text-text-secondary/60 focus:border-primary-600 focus:outline-none"
           />
           <span aria-hidden className="text-text-secondary">
             –
@@ -135,7 +135,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
             value={params.score_max}
             onChange={setScore("score_max")}
             onFocus={() => setScoreOpen(true)}
-            className="h-11 w-full rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary placeholder:text-text-secondary/60 focus:border-primary-600 focus:outline-none"
+            className="h-12 w-full rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary placeholder:text-text-secondary/60 focus:border-primary-600 focus:outline-none"
           />
         </div>
         {scoreOpen && (
@@ -162,7 +162,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
                 aria-checked={active}
                 onClick={() => setParams({ status: active ? "" : status })}
                 className={cn(
-                  "flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-sm transition-colors",
+                  "flex min-h-12 items-center justify-between gap-2 rounded-lg px-3 text-sm transition-colors",
                   active
                     ? "bg-accent-100 text-primary-600 font-medium"
                     : "text-text-secondary hover:bg-surface-0 hover:text-text-primary"
@@ -205,14 +205,14 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
                     aria-checked={active}
                     onClick={() => toggleTag(tag)}
                     className={cn(
-                      "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex min-h-12 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                       active
-                        ? "border-primary-600 bg-primary-600 text-white shadow-sm"
+                        ? "border-primary-600 bg-primary-600 text-on-primary shadow-sm"
                         : "border-border bg-surface-0 text-text-secondary hover:border-primary-500 hover:text-text-primary"
                     )}
                   >
                     {tag}
-                    <span className={cn("tabular-nums", active ? "text-white/80" : "text-text-secondary/70")}>
+                    <span className={cn("tabular-nums", active ? "text-on-primary/80" : "text-text-secondary/70")}>
                       {count}
                     </span>
                   </button>
@@ -236,7 +236,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
             type="date"
             value={params.created_from}
             onChange={(e) => setParams({ created_from: e.target.value })}
-            className="h-11 rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
+            className="h-12 rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
           />
           <label className="sr-only" htmlFor="created-to">
             {t("filters.createdTo")}
@@ -246,7 +246,7 @@ export function FilterPanel({ params, setParams, facets, clearFilters, className
             type="date"
             value={params.created_to}
             onChange={(e) => setParams({ created_to: e.target.value })}
-            className="h-11 rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
+            className="h-12 rounded-lg border border-border bg-surface-0 px-3 text-sm text-text-primary focus:border-primary-600 focus:outline-none"
           />
         </div>
       </fieldset>

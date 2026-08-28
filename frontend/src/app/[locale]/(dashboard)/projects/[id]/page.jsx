@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { cookies } from "next/headers";
 import { ProjectDetail } from "@/features/projects/components/ProjectDetail";
+import { ProjectLoadError } from "@/features/projects/components/ProjectLoadError";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
@@ -64,6 +65,11 @@ function mapApiToLegacy(api) {
   };
 }
 
+/**
+ * Fetch a project, distinguishing a real 404 (notFound) from any other failure
+ * (network error, 5xx, …) so a dropped connection is shown as a retryable
+ * error state instead of a misleading "not found" page.
+ */
 async function fetchProject(id) {
   try {
     const cookieStore = await cookies();
@@ -75,12 +81,13 @@ async function fetchProject(id) {
     };
 
     const res = await fetch(`${API_BASE}/projects/${id}`, { headers, cache: "no-store" });
-    if (!res.ok) return null;
+    if (res.status === 404) return { ok: false, notFound: true };
+    if (!res.ok) return { ok: false, notFound: false, status: res.status };
     // API envelope is { success, message, data } — unwrap the project object.
     const body = await res.json();
-    return body?.data ?? body;
+    return { ok: true, data: body?.data ?? body };
   } catch {
-    return null;
+    return { ok: false, notFound: false };
   }
 }
 
@@ -88,11 +95,14 @@ export default async function ProjectDetailPage({ params }) {
   const { locale, id } = await params;
   setRequestLocale(locale);
 
-  const apiProject = await fetchProject(id);
-  if (!apiProject) {
-    notFound();
+  const result = await fetchProject(id);
+  if (!result.ok) {
+    // A genuine 404 → Next.js not-found page. Anything else (network/5xx) →
+    // retryable error state instead of notFound().
+    if (result.notFound) notFound();
+    return <ProjectLoadError />;
   }
 
-  const project = mapApiToLegacy(apiProject);
+  const project = mapApiToLegacy(result.data);
   return <ProjectDetail project={project} />;
 }

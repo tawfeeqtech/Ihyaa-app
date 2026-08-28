@@ -276,7 +276,7 @@ export function AgentReportView({ projectId }) {
               className={cn(
                 "inline-flex min-h-12 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "border-primary-600 bg-primary-600 text-white shadow-sm"
+                  ? "border-primary-600 bg-primary-600 text-on-primary shadow-sm"
                   : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
               )}
             >

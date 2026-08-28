@@ -8,14 +8,14 @@ const baseClasses =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg font-heading font-semibold transition-all duration-300 ease-out select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
 
 const variantClasses = {
-  primary: "bg-primary-600 text-white shadow-md hover:bg-primary-500 hover:shadow-lg",
+  primary: "bg-primary-600 text-on-primary shadow-md hover:bg-primary-500 hover:shadow-lg",
   secondary:
     "border border-border bg-accent-100 text-text-primary shadow-sm hover:bg-accent-100/60",
   danger: "bg-danger text-white shadow-sm hover:bg-danger-ink",
   ghost: "text-text-primary hover:bg-surface-1",
   outline: "border border-border bg-transparent text-text-primary hover:bg-surface-1",
   outlineLight:
-    "border border-white/60 bg-white/10 text-white hover:border-white hover:bg-white/15",
+    "border border-white/60 bg-white/10 text-on-primary hover:border-white hover:bg-white/15",
 };
 
 const sizeClasses = {

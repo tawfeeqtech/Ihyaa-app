@@ -52,7 +52,7 @@ export function AIScoreBadge({
           styles.ring,
           className
         )}
-        title={`AI Score: ${score}/100`}
+        title={`${t("aiScore")}: ${score}/100`}
       >
         <span className="font-heading text-xl font-bold">{score}</span>
       </span>
@@ -66,7 +66,7 @@ export function AIScoreBadge({
         styles.badge,
         className
       )}
-      title={`AI Score: ${score}/100`}
+      title={`${t("aiScore")}: ${score}/100`}
     >
       <span aria-hidden className={cn("h-2 w-2 rounded-full", styles.dot)} />
       {t("aiScore")}: {score}

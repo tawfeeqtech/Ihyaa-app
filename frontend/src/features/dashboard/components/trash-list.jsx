@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowCounterClockwise,
@@ -17,6 +17,7 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
 import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/utils";
+import { useDialogFocus } from "@/shared/hooks/use-dialog-focus";
 
 /**
  * EPIC-10 · Trash list (US-055 · T075/T076) — trash-api.md §1..3.
@@ -50,15 +51,12 @@ export function TrashList({ initialItems = [], className }) {
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Close the confirmation dialog on Escape (SRS-UI-A11 · modal behaviour).
-  useEffect(() => {
-    if (!confirmTarget) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") setConfirmTarget(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmTarget]);
+  // Focus trap for the force-delete dialog (SRS-UI-A11 · modal behaviour):
+  // move focus in on open, cycle Tab, close on Escape, restore on close.
+  const { containerRef: confirmDialogRef } = useDialogFocus({
+    open: Boolean(confirmTarget),
+    onClose: () => setConfirmTarget(null),
+  });
 
   async function restore(item) {
     setBusyId(item.id);
@@ -137,8 +135,10 @@ export function TrashList({ initialItems = [], className }) {
               aria-hidden
             />
             <motion.div
+              ref={confirmDialogRef}
               role="alertdialog"
               aria-modal="true"
+              tabIndex={-1}
               aria-labelledby="trash-confirm-title"
               aria-describedby="trash-confirm-desc"
               initial={{ opacity: 0, scale: 0.95, y: 16 }}

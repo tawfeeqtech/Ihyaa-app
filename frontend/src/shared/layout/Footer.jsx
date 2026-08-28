@@ -18,15 +18,15 @@ export function Footer() {
           <p className="max-w-xs text-sm text-text-secondary">{t("aboutDescription")}</p>
           <div className="flex items-center gap-2">
             {[
-              { icon: XLogo, label: "X (Twitter)" },
-              { icon: LinkedinLogo, label: "LinkedIn" },
-              { icon: GithubLogo, label: "GitHub" },
-            ].map(({ icon: IconComponent, label }) => (
+              { icon: XLogo, labelKey: "socialX" },
+              { icon: LinkedinLogo, labelKey: "socialLinkedIn" },
+              { icon: GithubLogo, labelKey: "socialGitHub" },
+            ].map(({ icon: IconComponent, labelKey }) => (
               <a
-                key={label}
+                key={labelKey}
                 href="#"
-                aria-label={label}
-                className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface-0 text-text-secondary transition-colors hover:border-primary-600 hover:text-primary-600"
+                aria-label={t(labelKey)}
+                className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-surface-0 text-text-secondary transition-colors hover:border-primary-600 hover:text-primary-600"
               >
                 <IconComponent size={20} />
               </a>
@@ -99,8 +99,8 @@ export function Footer() {
 
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-text-secondary sm:flex-row sm:px-6 lg:px-8">
-          <p>© 2026 {t("copyright")}</p>
-          <p dir="ltr" className="font-mono">Made with ❤️ in the MENA region</p>
+          <p>© {new Date().getFullYear()} {t("copyright")}</p>
+          <p className="font-mono">{t("madeWith")}</p>
         </div>
       </div>
     </footer>

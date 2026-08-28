@@ -115,7 +115,7 @@ export default function LoginPage() {
             </label>
             <Link
               href="/forgot-password"
-              className="min-h-6 text-sm font-medium text-primary-600 hover:underline"
+              className="inline-flex min-h-12 items-center text-sm font-medium text-primary-600 hover:underline"
             >
               {t("forgotPassword")}
             </Link>

@@ -68,7 +68,7 @@ export function LocaleSwitcher({ className }) {
                   aria-selected={l === locale}
                   onClick={() => switchTo(l)}
                   className={cn(
-                    "flex min-h-11 w-full items-center justify-between px-4 text-sm transition-colors hover:bg-accent-100",
+                    "flex min-h-12 w-full items-center justify-between px-4 text-sm transition-colors hover:bg-accent-100",
                     l === locale
                       ? "font-semibold text-primary-600"
                       : "text-text-primary"

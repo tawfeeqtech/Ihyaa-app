@@ -36,6 +36,7 @@ export default function InterestsSentPage() {
 
   const [loading, setLoading] = useState(true);
   const [interests, setInterests] = useState([]);
+  const [error, setError] = useState(false);
   const [counters, setCounters] = useState({
     total: 0,
     pending: 0,
@@ -51,6 +52,7 @@ export default function InterestsSentPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetchSent({
         status: filters.length ? filters.join(",") : undefined,
@@ -63,6 +65,7 @@ export default function InterestsSentPage() {
       );
       setTotalPages(res?.meta?.last_page ?? 1);
     } catch (err) {
+      setError(true);
       toast.error(err.body?.message ?? t("board.loadError"));
     } finally {
       setLoading(false);
@@ -156,6 +159,8 @@ export default function InterestsSentPage() {
 
       <InterestBoard
         loading={loading}
+        error={error}
+        onRetry={load}
         items={interests}
         emptyIcon={PaperPlaneTilt}
         emptyTitle={t("empty.sentTitle")}
@@ -234,9 +239,9 @@ function FilterPill({ active, onClick, children }) {
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+        "min-h-12 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
         active
-          ? "border-primary-600 bg-primary-600 text-white"
+          ? "border-primary-600 bg-primary-600 text-on-primary"
           : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
       )}
     >

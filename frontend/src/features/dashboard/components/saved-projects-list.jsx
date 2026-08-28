@@ -48,7 +48,7 @@ export function SavedProjectsList({ items, onRemoved, className }) {
           </p>
           <Link
             href="/projects"
-            className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-700"
           >
             <Compass size={18} weight="bold" aria-hidden />
             {t("investor.savedBrowse")}
@@ -151,7 +151,7 @@ export function SavedProjectsList({ items, onRemoved, className }) {
                     event.stopPropagation();
                     void remove(row);
                   }}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-danger/40 hover:bg-tint-danger/50 hover:text-danger"
+                  className="flex h-12 w-12 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:border-danger/40 hover:bg-tint-danger/50 hover:text-danger"
                 >
                   <Trash size={18} weight="bold" aria-hidden />
                 </button>

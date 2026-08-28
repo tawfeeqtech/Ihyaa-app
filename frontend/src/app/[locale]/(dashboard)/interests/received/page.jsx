@@ -35,6 +35,7 @@ export default function InterestsReceivedPage() {
 
   const [loading, setLoading] = useState(true);
   const [interests, setInterests] = useState([]);
+  const [error, setError] = useState(false);
   const [counters, setCounters] = useState({
     total: 0,
     pending: 0,
@@ -48,6 +49,7 @@ export default function InterestsReceivedPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetchReceived({
         status: filters.length ? filters.join(",") : undefined,
@@ -60,6 +62,7 @@ export default function InterestsReceivedPage() {
       );
       setTotalPages(res?.meta?.last_page ?? 1);
     } catch (err) {
+      setError(true);
       toast.error(err.body?.message ?? t("board.loadError"));
     } finally {
       setLoading(false);
@@ -131,6 +134,8 @@ export default function InterestsReceivedPage() {
 
       <InterestBoard
         loading={loading}
+        error={error}
+        onRetry={load}
         items={interests}
         emptyIcon={Tray}
         emptyTitle={t("empty.receivedTitle")}
@@ -154,9 +159,9 @@ function FilterPill({ active, onClick, children }) {
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+        "min-h-12 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
         active
-          ? "border-primary-600 bg-primary-600 text-white"
+          ? "border-primary-600 bg-primary-600 text-on-primary"
           : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
       )}
     >
@@ -178,7 +183,7 @@ function ReceivedCard({ row, onStatusChange }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 font-heading text-sm font-bold text-white">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 font-heading text-sm font-bold text-on-primary">
               {investorName.trim().charAt(0)}
             </span>
             <div className="min-w-0">

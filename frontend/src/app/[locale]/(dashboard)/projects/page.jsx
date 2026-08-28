@@ -10,7 +10,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { SkeletonCard } from "@/shared/components/Skeleton";
-import { EmptyState } from "@/shared/components/EmptyState";
+import { EmptyState, ErrorState } from "@/shared/components/EmptyState";
 import { Button } from "@/shared/components/Button";
 import PaginationBar from "@/shared/components/PaginationBar";
 import { Link } from "@/config/i18n/link";
@@ -22,6 +22,7 @@ const PAGE_SIZE = 12;
 
 export default function ProjectsGalleryPage() {
   const t = useTranslations("projects");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
 
   const [query, setQuery] = useState("");
@@ -31,6 +32,7 @@ export default function ProjectsGalleryPage() {
   const [view, setView] = useState("grid");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(null); // null while loading
+  const [error, setError] = useState(false);
   const [meta, setMeta] = useState({ current_page: 1, per_page: PAGE_SIZE, total: 0, last_page: 1 });
   const [suggestions, setSuggestions] = useState([]);
 
@@ -63,6 +65,7 @@ export default function ProjectsGalleryPage() {
   }, [debouncedQuery]);
 
   const fetchProjects = useCallback(async () => {
+    setError(false);
     try {
       const params = new URLSearchParams();
       const q = debouncedQuery.trim();
@@ -92,6 +95,7 @@ export default function ProjectsGalleryPage() {
         }
       );
     } catch {
+      setError(true);
       setItems([]);
       setMeta({ current_page: 1, per_page: PAGE_SIZE, total: 0, last_page: 1 });
     }
@@ -101,6 +105,20 @@ export default function ProjectsGalleryPage() {
     // Async data fetch — setState happens after await, not synchronously.
     fetchProjects(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [fetchProjects]);
+
+  /** Retry a failed load — back to the skeleton while the request runs. */
+  const handleRetry = useCallback(() => {
+    setError(false);
+    setItems(null);
+    fetchProjects();
+  }, [fetchProjects]);
+
+  /** Drop the search query + sector filter (keeps sort/view) and go to page 1. */
+  const clearFilters = useCallback(() => {
+    setQuery("");
+    setSector("all");
+    setPage(1);
+  }, []);
 
   const totalPages = Math.max(1, meta.last_page ?? 1);
   const total = meta.total ?? 0;
@@ -170,7 +188,7 @@ export default function ProjectsGalleryPage() {
 
       {/* Filters + sort */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t("gallery.filters")}>
+        <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("gallery.filters")}>
           <FilterChip active={sector === "all"} onClick={() => { setSector("all"); setPage(1); }}>
             {t("gallery.all")}
           </FilterChip>
@@ -246,6 +264,20 @@ export default function ProjectsGalleryPage() {
             <SkeletonCard key={i} />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title={tErrors("title")}
+          description={tErrors("description")}
+          onRetry={handleRetry}
+          retryLabel={tErrors("retry")}
+          action={
+            query || sector !== "all" ? (
+              <Button variant="secondary" onClick={clearFilters}>
+                {t("gallery.clearFilters")}
+              </Button>
+            ) : undefined
+          }
+        />
       ) : items.length === 0 ? (
         <EmptyState
           icon={MagnifyingGlass}
@@ -253,14 +285,7 @@ export default function ProjectsGalleryPage() {
           description={t("gallery.emptyDescription")}
           action={
             query || sector !== "all" ? (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setQuery("");
-                  setSector("all");
-                  setPage(1);
-                }}
-              >
+              <Button variant="secondary" onClick={clearFilters}>
                 {t("gallery.clearFilters")}
               </Button>
             ) : undefined
@@ -305,13 +330,12 @@ function FilterChip({ active, onClick, children }) {
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-300",
+        "shrink-0 inline-flex min-h-12 items-center justify-center rounded-full border px-4 text-sm font-medium transition-all duration-300",
         active
-          ? "border-primary-600 bg-primary-600 text-white shadow-md"
+          ? "border-primary-600 bg-primary-600 text-on-primary shadow-md"
           : "border-border bg-surface-1 text-text-secondary hover:border-primary-500 hover:text-text-primary"
       )}
     >

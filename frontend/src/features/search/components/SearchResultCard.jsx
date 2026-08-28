@@ -5,7 +5,7 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
 import { sectorLabels, statusLabels } from "@/features/projects/data/projects";
 import { AIScoreBadge } from "@/features/projects/components/AIScoreBadge";
-import { initials } from "@/shared/utils";
+import { initials, sanitizeHighlightHtml } from "@/shared/utils";
 
 /**
  * A single search hit (US-030 / US-032 / US-033).
@@ -65,11 +65,12 @@ export function SearchResultCard({ hit }) {
 
         {/* Body */}
         <div className="flex flex-1 flex-col gap-3 p-5">
-          {/* Meilisearch highlights match in <em>; the engine controls the markup. */}
+          {/* Meilisearch highlights match in <em> — keep only that tag, strip
+              attributes and neutralise stray markup (XSS guard). */}
           {title.includes("<em>") ? (
             <h3
               className="font-heading text-lg font-semibold text-text-primary transition-colors group-hover:text-primary-600"
-              dangerouslySetInnerHTML={{ __html: title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHighlightHtml(title) }}
             />
           ) : (
             <h3 className="font-heading text-lg font-semibold text-text-primary transition-colors group-hover:text-primary-600">
@@ -80,7 +81,7 @@ export function SearchResultCard({ hit }) {
           <p className="line-clamp-2 text-sm text-text-secondary">{description}</p>
 
           {hit.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5" aria-label={t("filters.tags")}>
+            <div className="flex flex-wrap gap-1.5">
               {hit.tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}

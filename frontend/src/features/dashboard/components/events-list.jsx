@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarBlank } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
-import { EmptyState } from "@/shared/components/EmptyState";
+import { EmptyState, ErrorState } from "@/shared/components/EmptyState";
 import PaginationBar from "@/shared/components/PaginationBar";
 import { PullToRefresh } from "@/shared/components/PullToRefresh";
 import { RelativeTime } from "@/features/notifications/components/RelativeTime";
@@ -32,22 +32,26 @@ import { useCriticalEvents } from "../hooks/use-critical-events";
 
 export function EventsList() {
   const t = useTranslations("events");
+  const tErrors = useTranslations("errors");
   const toast = useToast();
 
   const realtime = useCriticalEvents();
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetchNotifications({ page, perPage: NOTIFICATIONS_PAGE_SIZE });
       setItems((res?.data ?? []).map(mapApiNotification));
       setTotalPages(res?.meta?.last_page ?? 1);
     } catch (err) {
+      setError(true);
       toast.error(err.body?.message ?? t("loadError"));
     } finally {
       setLoading(false);
@@ -72,10 +76,18 @@ export function EventsList() {
             {Array.from({ length: 5 }, (_, i) => (
               <div
                 key={i}
+                aria-hidden
                 className="h-20 animate-pulse rounded-xl border border-border bg-surface-1"
               />
             ))}
           </div>
+        ) : error ? (
+          <ErrorState
+            title={tErrors("title")}
+            description={tErrors("description")}
+            onRetry={load}
+            retryLabel={tErrors("retry")}
+          />
         ) : merged.length === 0 ? (
           <EmptyState
             icon={CalendarBlank}

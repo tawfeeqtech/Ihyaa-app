@@ -103,16 +103,16 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={EASE}
-              className="text-white"
+              className="text-on-primary"
             >
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/90">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-on-primary/90">
                 <ChartLineUp size={18} weight="bold" aria-hidden />
                 {t("hero.badge")}
               </p>
-              <h1 className="mt-6 font-heading text-4xl font-bold leading-tight text-white drop-shadow-sm sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 font-heading text-4xl font-bold leading-tight text-on-primary drop-shadow-sm sm:text-5xl lg:text-6xl">
                 {t("hero.title")}
               </h1>
-              <p className="mt-6 max-w-lg text-lg text-white/85">{t("hero.subtitle")}</p>
+              <p className="mt-6 max-w-lg text-lg text-on-primary/85">{t("hero.subtitle")}</p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link href="/projects/new">
@@ -133,7 +133,7 @@ export default function LandingPage() {
               </div>
 
               {/* Live stats */}
-              <dl className="mt-12 grid max-w-lg grid-cols-3 gap-4 border-t border-white/20 pt-8">
+              <dl className="mt-12 grid max-w-lg grid-cols-3 gap-4 border-t border-on-primary/20 pt-8">
                 {(
                   [
                     { value: 2450, suffix: "+", key: "projects" },
@@ -142,8 +142,8 @@ export default function LandingPage() {
                   ]
                 ).map((stat) => (
                   <div key={stat.key}>
-                    <dt className="text-sm text-white/75">{t(`hero.stats.${stat.key}`)}</dt>
-                    <dd className="font-heading text-2xl font-bold text-white sm:text-3xl">
+                    <dt className="text-sm text-on-primary/75">{t(`hero.stats.${stat.key}`)}</dt>
+                    <dd className="font-heading text-2xl font-bold text-on-primary sm:text-3xl">
                       <AnimatedCounter target={stat.value} suffix={stat.suffix} />
                     </dd>
                   </div>
@@ -228,7 +228,7 @@ export default function LandingPage() {
               >
                 <span className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-accent-100 shadow-glow">
                   <IconComponent size={32} weight="regular" className="text-primary-600" />
-                  <span className="absolute -end-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 font-heading text-xs font-bold text-white">
+                  <span className="absolute -end-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 font-heading text-xs font-bold text-on-primary">
                     {i + 1}
                   </span>
                 </span>
@@ -327,7 +327,7 @@ export default function LandingPage() {
                   {t(`proof.testimonials.${key}.quote`)}
                 </blockquote>
                 <figcaption className="mt-auto flex items-center gap-3 border-t border-border pt-4">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 font-heading text-sm font-bold text-white">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 font-heading text-sm font-bold text-on-primary">
                     {t(`proof.testimonials.${key}.initial`)}
                   </span>
                   <div>
@@ -364,10 +364,10 @@ export default function LandingPage() {
         {/* ============ Final CTA ============ */}
         <section className="relative overflow-hidden bg-primary-600 pattern-islamic">
           <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:py-24">
-            <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
+            <h2 className="font-heading text-3xl font-bold text-on-primary sm:text-4xl">
               {t("cta.title")}
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">{t("cta.subtitle")}</p>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-on-primary/85">{t("cta.subtitle")}</p>
 
             <form
               onSubmit={handleCtaSubmit}
@@ -380,7 +380,7 @@ export default function LandingPage() {
                 <MagnifyingGlass
                   size={18}
                   aria-hidden
-                  className="pointer-events-none absolute inset-y-0 start-4 my-auto text-white/70"
+                  className="pointer-events-none absolute inset-y-0 start-4 my-auto text-on-primary/70"
                 />
                 <input
                   id="cta-email"
@@ -400,7 +400,7 @@ export default function LandingPage() {
               </Button>
             </form>
 
-            <p className="mt-5 text-sm text-white/70">{t("cta.note")}</p>
+            <p className="mt-5 text-sm text-on-primary/70">{t("cta.note")}</p>
           </div>
         </section>
       </main>

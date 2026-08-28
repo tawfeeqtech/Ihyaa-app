@@ -16,6 +16,7 @@ import {
   X,
   XCircle,
 } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils";
 
 const ToastContext = createContext(null);
@@ -52,6 +53,7 @@ const dismissAfter = {
 };
 
 export function ToastProvider({ children }) {
+  const t = useTranslations("common");
   const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
 
@@ -117,7 +119,7 @@ export function ToastProvider({ children }) {
                 <button
                   type="button"
                   onClick={() => dismiss(toast.id)}
-                  aria-label="close"
+                  aria-label={t("close")}
                   className="shrink-0 rounded p-1 text-text-secondary transition-colors hover:bg-surface-1 hover:text-text-primary"
                 >
                   <X size={16} />

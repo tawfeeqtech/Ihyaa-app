@@ -87,7 +87,7 @@ export default function PaginationBar({
                 className={cn(
                   "min-h-12 w-12 rounded-lg font-heading text-sm font-semibold transition-colors",
                   p === current
-                    ? "bg-primary-600 text-white shadow-md"
+                    ? "bg-primary-600 text-on-primary shadow-md"
                     : "text-text-secondary hover:bg-surface-1"
                 )}
               >

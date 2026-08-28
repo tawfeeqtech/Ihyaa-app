@@ -52,7 +52,7 @@ export function QuickActions({ className }) {
           className={cn(
             "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 font-heading text-sm font-semibold transition-all duration-300 ease-out active:scale-[0.98] sm:w-auto",
             variant === "primary"
-              ? "bg-primary-600 text-white shadow-md hover:bg-primary-500 hover:shadow-lg"
+              ? "bg-primary-600 text-on-primary shadow-md hover:bg-primary-500 hover:shadow-lg"
               : "border border-border bg-surface-1 text-text-primary shadow-sm hover:bg-surface-0"
           )}
         >

@@ -54,7 +54,7 @@ export function UpdatesFeed({ items, className }) {
           </p>
           <Link
             href="/projects"
-            className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-700"
           >
             <Compass size={18} weight="bold" aria-hidden />
             {t("investor.updatesEmptyCta")}

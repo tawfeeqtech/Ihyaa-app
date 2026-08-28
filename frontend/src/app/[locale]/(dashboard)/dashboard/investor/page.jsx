@@ -5,6 +5,7 @@ import { Compass, Rocket, UserCircleGear } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/config/i18n/link";
 import { Skeleton } from "@/shared/components/Skeleton";
+import { ErrorState } from "@/shared/components/EmptyState";
 import { useToast } from "@/shared/components/Toast";
 import { api } from "@/shared/lib/api";
 import { InvestorKpiGrid } from "@/features/dashboard/components/investor-kpi-grid";
@@ -29,16 +30,21 @@ import { cn } from "@/shared/utils";
 
 export default function InvestorDashboardPage() {
   const t = useTranslations("dashboard");
+  const tErrors = useTranslations("errors");
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     try {
       const res = await api.get("/dashboard/investor");
       setData(res?.data ?? res ?? {});
     } catch (err) {
+      setError(true);
       toast.error(err.body?.message ?? t("investor.loadError"));
     } finally {
       setLoading(false);
@@ -104,6 +110,23 @@ export default function InvestorDashboardPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="font-heading text-2xl font-bold sm:text-3xl">{t("investor.title")}</h1>
+          <p className="mt-1 text-text-secondary">{t("investor.subtitle")}</p>
+        </div>
+        <ErrorState
+          title={tErrors("title")}
+          description={tErrors("description")}
+          onRetry={load}
+          retryLabel={tErrors("retry")}
+        />
+      </div>
+    );
+  }
+
   const kpis = data?.kpis ?? {};
   const profileComplete = data?.profile_complete !== false;
   const suggestions = data?.suggestions ?? [];
@@ -136,7 +159,7 @@ export default function InvestorDashboardPage() {
           </div>
           <Link
             href="/profile"
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-700"
           >
             {t("investor.profileIncompleteCta")}
           </Link>

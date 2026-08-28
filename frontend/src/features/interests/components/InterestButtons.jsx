@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/components/Button";
 import { acceptInterest, rejectInterest } from "@/features/interests/lib/interest";
 import { cn } from "@/shared/utils";
+import { useDialogFocus } from "@/shared/hooks/use-dialog-focus";
 
 const MAX_REASON = 500;
 
@@ -26,19 +27,12 @@ export function InterestButtons({ interest, onStatusChange }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Close the confirmation dialog on Escape.
-  useEffect(() => {
-    if (!action) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        setAction(null);
-        setReason("");
-        setError("");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [action]);
+  // Focus trap for the accept/reject dialog: move focus in on open, cycle Tab,
+  // close on Escape, restore focus to the trigger on close.
+  const { containerRef: actionDialogRef } = useDialogFocus({
+    open: Boolean(action),
+    onClose: close,
+  });
 
   if (interest.status === "cancelled") {
     return (
@@ -118,8 +112,10 @@ export function InterestButtons({ interest, onStatusChange }) {
           >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={close} aria-hidden />
             <motion.div
+              ref={actionDialogRef}
               role="alertdialog"
               aria-modal="true"
+              tabIndex={-1}
               aria-labelledby="interest-action-title"
               aria-describedby="interest-action-desc"
               initial={{ opacity: 0, scale: 0.95, y: 16 }}

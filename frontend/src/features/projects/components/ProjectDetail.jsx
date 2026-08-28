@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowsClockwise,
@@ -48,6 +48,7 @@ import { api } from "@/shared/lib/api";
 import { InterestModal } from "@/features/interests/components/InterestModal";
 import { useSavedStatus } from "@/features/projects/hooks/use-saved-status";
 import { avatarHue, cn, initials } from "@/shared/utils";
+import { useDialogFocus } from "@/shared/hooks/use-dialog-focus";
 
 /**
  * Deferred viewer detection (auth + role cookies) to avoid hydration mismatch.
@@ -171,6 +172,13 @@ export function ProjectDetail({ project }) {
   // Bumped after a re-eval is queued so the status badge refetches immediately
   // and resumes polling the new run.
   const [reevalSignal, setReevalSignal] = useState(0);
+
+  // Focus trap for the re-evaluate dialog: move focus in on open, cycle Tab,
+  // close on Escape, restore focus to the trigger on close.
+  const { containerRef: reevalDialogRef } = useDialogFocus({
+    open: reevalOpen,
+    onClose: () => setReevalOpen(false),
+  });
 
   const confirmReevaluate = async () => {
     setReevalOpen(false);
@@ -307,6 +315,26 @@ export function ProjectDetail({ project }) {
     { key: "agreement", label: t("detail.tabs.agreement") },
   ];
 
+  // WAI-ARIA Tabs pattern: roving tabindex + Arrow/Home/End navigation.
+  // In RTL the arrow direction is reversed (ArrowLeft moves "forward").
+  const tabRefs = useRef({});
+  const handleTabKeyDown = (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const idx = tabs.findIndex((tb) => tb.key === tab);
+    let nextIdx;
+    if (e.key === "Home") {
+      nextIdx = 0;
+    } else if (e.key === "End") {
+      nextIdx = tabs.length - 1;
+    } else {
+      const delta = e.key === "ArrowRight" ? 1 : -1;
+      nextIdx = (idx + (locale === "ar" ? -delta : delta) + tabs.length) % tabs.length;
+    }
+    setTab(tabs[nextIdx].key);
+    tabRefs.current[tabs[nextIdx].key]?.focus();
+  };
+
   return (
     <div className="space-y-6">
       {/* Cover header */}
@@ -380,12 +408,18 @@ export function ProjectDetail({ project }) {
         {/* Main column */}
         <div className="min-w-0">
           {/* Tabs */}
-          <div role="tablist" aria-label={t("detail.tabsLabel")} className="flex gap-1 overflow-x-auto border-b border-border">
+          <div role="tablist" aria-label={t("detail.tabsLabel")} onKeyDown={handleTabKeyDown} className="flex gap-1 overflow-x-auto border-b border-border">
             {tabs.map(({ key, label }) => (
               <button
                 key={key}
+                ref={(el) => {
+                  tabRefs.current[key] = el;
+                }}
+                id={`project-tab-${key}`}
                 role="tab"
+                tabIndex={tab === key ? 0 : -1}
                 aria-selected={tab === key}
+                aria-controls={`project-tabpanel-${key}`}
                 onClick={() => setTab(key)}
                 className={cn(
                   "min-h-12 shrink-0 border-b-2 px-4 text-sm font-semibold transition-colors",
@@ -402,7 +436,13 @@ export function ProjectDetail({ project }) {
           <div className="pt-6">
             {/* ============ Tab: Overview ============ */}
             {tab === "overview" && (
-              <div className="space-y-6">
+              <div
+                id="project-tabpanel-overview"
+                role="tabpanel"
+                aria-labelledby="project-tab-overview"
+                tabIndex={-1}
+                className="space-y-6"
+              >
                 <h2 className="font-heading text-xl font-bold">{t("detail.overviewTitle")}</h2>
                 <p className="leading-relaxed text-text-primary">{t("detail.overviewBody")}</p>
                 <p className="leading-relaxed text-text-secondary">{t("detail.overviewBody2")}</p>
@@ -469,7 +509,13 @@ export function ProjectDetail({ project }) {
 
             {/* ============ Tab: AI Report ============ */}
             {tab === "report" && (
-              <div className="space-y-8">
+              <div
+                id="project-tabpanel-report"
+                role="tabpanel"
+                aria-labelledby="project-tab-report"
+                tabIndex={-1}
+                className="space-y-8"
+              >
                 {aiLoading || reportLoading ? (
                   <div className="space-y-4" aria-busy>
                     <SkeletonText lines={4} />
@@ -737,7 +783,13 @@ export function ProjectDetail({ project }) {
 
             {/* ============ Tab: Team ============ */}
             {tab === "team" && (
-              <ul className="grid gap-4 sm:grid-cols-2">
+              <ul
+                id="project-tabpanel-team"
+                role="tabpanel"
+                aria-labelledby="project-tab-team"
+                tabIndex={-1}
+                className="grid gap-4 sm:grid-cols-2"
+              >
                 {team.map((member, i) => (
                   <li key={`${member.name}-${i}`} className="flex items-center gap-4 rounded-xl border border-border bg-surface-1 p-5">
                     <span
@@ -759,7 +811,13 @@ export function ProjectDetail({ project }) {
 
             {/* ============ Tab: Agreement ============ */}
             {tab === "agreement" && (
-              <div className="rounded-xl border border-border bg-surface-1 p-8 text-center">
+              <div
+                id="project-tabpanel-agreement"
+                role="tabpanel"
+                aria-labelledby="project-tab-agreement"
+                tabIndex={-1}
+                className="rounded-xl border border-border bg-surface-1 p-8 text-center"
+              >
                 <FilePdf size={48} weight="light" className="mx-auto text-danger" aria-hidden />
                 <h3 className="mt-4 font-heading text-lg font-bold">{t("agreement.title")}</h3>
                 <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">
@@ -876,8 +934,10 @@ export function ProjectDetail({ project }) {
               aria-hidden
             />
             <motion.div
+              ref={reevalDialogRef}
               role="alertdialog"
               aria-modal="true"
+              tabIndex={-1}
               aria-labelledby="reeval-dialog-title"
               aria-describedby="reeval-dialog-desc"
               initial={{ opacity: 0, scale: 0.95, y: 16 }}

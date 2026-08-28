@@ -4,7 +4,8 @@
     "appTagline": "An AI marketplace that evaluates your project, diagnoses its gaps, and connects you with the right investors",
     "demoNote": "Demo mode — local mock data only",
     "loggedOut": "Signed out successfully",
-    "guest": "Guest"
+    "guest": "Guest",
+    "close": "Close"
   },
   "errors": {
     "title": "Something went wrong",
@@ -111,7 +112,11 @@
     "agreement": "PDF agreement",
     "contact": "Contact",
     "contactDescription": "Have a question? Our team is here to help.",
-    "copyright": "Ihyaa. All rights reserved."
+    "copyright": "Ihyaa. All rights reserved.",
+    "socialX": "X (Twitter)",
+    "socialLinkedIn": "LinkedIn",
+    "socialGitHub": "GitHub",
+    "madeWith": "Made with ❤️ in the MENA region"
   },
   "sidebar": {
     "navigation": "Navigation",

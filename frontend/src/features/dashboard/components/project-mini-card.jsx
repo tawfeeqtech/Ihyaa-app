@@ -98,7 +98,7 @@ export function ProjectMiniCard({ project, className }) {
 
 /** The four AI evaluation states (الدستور II). */
 function AiStateArea({ project, state, t }) {
-  const base = "flex min-h-11 items-center gap-2 rounded-lg px-3 py-2";
+  const base = "flex min-h-12 items-center gap-2 rounded-lg px-3 py-2";
 
   // completed — the ai_score is prominent and links to the AI report.
   if (state === "completed") {
@@ -134,7 +134,7 @@ function AiStateArea({ project, state, t }) {
         <span className="text-sm font-medium">{t("owner.aiState.failed")}</span>
         <Link
           href={`/projects/${project.id}`}
-          className="ms-auto inline-flex items-center gap-1 rounded-md bg-surface-0/80 px-2 py-1 text-xs font-semibold text-danger-ink transition-colors hover:bg-surface-0"
+          className="ms-auto inline-flex min-h-12 items-center gap-1 rounded-md bg-surface-0/80 px-3 text-xs font-semibold text-danger-ink transition-colors hover:bg-surface-0"
         >
           <ArrowCounterClockwise size={14} weight="bold" aria-hidden />
           {t("owner.aiState.retry")}

@@ -72,7 +72,7 @@ function SidebarMobileLinks({ role, labels }) {
     return (
       <Link
         href="/admin/analytics"
-        className="shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white"
+        className="shrink-0 inline-flex min-h-12 items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-medium text-on-primary"
       >
         {labels.adminAnalytics}
       </Link>
@@ -91,13 +91,13 @@ function SidebarMobileLinks({ role, labels }) {
       </Link>
       <Link
         href="/projects/new"
-        className="shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white"
+        className="shrink-0 inline-flex min-h-12 items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-medium text-on-primary"
       >
         {labels.newProject}
       </Link>
       <Link
         href={role === "investor" ? "/interests/sent" : "/interests/received"}
-        className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+        className="shrink-0 inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-surface-1 px-4 text-sm font-medium text-text-primary"
       >
         {role === "investor" ? labels.sentInterests : labels.receivedInterests}
       </Link>
@@ -105,13 +105,13 @@ function SidebarMobileLinks({ role, labels }) {
         <>
           <Link
             href="/events"
-            className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+            className="shrink-0 inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-surface-1 px-4 text-sm font-medium text-text-primary"
           >
             {labels.events}
           </Link>
           <Link
             href="/trash"
-            className="shrink-0 rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-sm font-medium text-text-primary"
+            className="shrink-0 inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-surface-1 px-4 text-sm font-medium text-text-primary"
           >
             {labels.trash}
           </Link>

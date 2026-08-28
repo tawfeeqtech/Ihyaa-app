@@ -355,7 +355,7 @@ export default function NewProjectPage() {
               <span
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 font-heading text-sm font-bold transition-colors",
-                  done && "border-primary-600 bg-primary-600 text-white",
+                  done && "border-primary-600 bg-primary-600 text-on-primary",
                   active && "border-primary-600 bg-accent-100 text-primary-600 shadow-glow",
                   !done && !active && "border-border bg-surface-1 text-text-secondary"
                 )}
@@ -471,7 +471,7 @@ export default function NewProjectPage() {
                         key={tag}
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-primary-600 bg-primary-600 px-3.5 text-sm font-medium text-white"
+                        className="inline-flex min-h-12 items-center gap-1.5 rounded-full border border-primary-600 bg-primary-600 px-3.5 text-sm font-medium text-on-primary"
                       >
                         {tag}
                         <X size={14} weight="bold" aria-hidden />
@@ -488,9 +488,9 @@ export default function NewProjectPage() {
                       aria-pressed={form.tags.includes(tag)}
                       onClick={() => addTag(tag)}
                       className={cn(
-                        "min-h-10 rounded-full border px-3.5 text-sm font-medium transition-all",
+                        "inline-flex min-h-12 items-center justify-center rounded-full border px-3.5 text-sm font-medium transition-all",
                         form.tags.includes(tag)
-                          ? "border-primary-600 bg-primary-600 text-white shadow-sm"
+                          ? "border-primary-600 bg-primary-600 text-on-primary shadow-sm"
                           : "border-border bg-surface-0 text-text-secondary hover:border-primary-500 hover:text-text-primary"
                       )}
                     >
@@ -641,7 +641,7 @@ export default function NewProjectPage() {
                 <button
                   type="button"
                   onClick={addMember}
-                  className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-600 transition-colors hover:bg-accent-100"
+                  className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-600 transition-colors hover:bg-accent-100"
                 >
                   <Plus size={16} weight="bold" aria-hidden />
                   {t("wizard.addMember")}

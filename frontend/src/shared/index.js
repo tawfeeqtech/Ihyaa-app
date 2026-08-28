@@ -17,4 +17,4 @@ export { DashboardErrorToast } from "./layout/DashboardErrorToast";
 
 export { ThemeProvider, useTheme } from "./lib/ThemeProvider";
 
-export { cn, formatNumber, initials, avatarHue } from "./utils";
+export { cn, formatNumber, initials, avatarHue, sanitizeHighlightHtml } from "./utils";

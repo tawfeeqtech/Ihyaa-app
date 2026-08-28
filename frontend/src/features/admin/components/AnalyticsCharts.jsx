@@ -28,33 +28,33 @@ import {
 } from "recharts";
 import { ChartPieSlice, LineSegments, WarningCircle } from "@phosphor-icons/react";
 
-/**
- * Fixed-order categorical palette (never cycled): brand deep-blue first, then
- * complementary hues that stay distinguishable for the 2–6 sectors an MVP
- * dashboard realistically shows.
- */
-const SECTOR_COLORS = ["#245173", "#e09a2e", "#2f8f6f", "#7a5a9c", "#355e7e"];
+/** Light-mode fallbacks for the categorical palette (globals.css `--chart-*`). */
+const SECTOR_FALLBACK = ["#245173", "#e09a2e", "#2f8f6f", "#7a5a9c", "#355e7e"];
 
 /**
- * Read the app's CSS design tokens once per theme change so chart ink/grid
- * inherit the correct colors in light and dark mode. Recharts fills/strokes are
- * plain SVG attributes (no CSS var()), so we resolve them to concrete hex.
+ * Read the app's CSS design tokens once per theme change so chart ink/grid and
+ * the categorical palette inherit the correct colors in light and dark mode.
+ * Recharts fills/strokes are plain SVG attributes (no CSS var()), so we resolve
+ * them to concrete hex.
  */
 function useThemeTokens() {
   const [tokens, setTokens] = useState({
     text: "#1a2b3a",
     secondary: "#5b6b7a",
     grid: "#e0e2ec",
+    sector: SECTOR_FALLBACK,
   });
 
   useEffect(() => {
     const read = () => {
       const s = getComputedStyle(document.documentElement);
       const val = (name, fallback) => s.getPropertyValue(name).trim() || fallback;
+      const sector = SECTOR_FALLBACK.map((_, i) => val(`--chart-${i + 1}`, SECTOR_FALLBACK[i]));
       setTokens({
         text: val("--color-text-primary", "#1a2b3a"),
         secondary: val("--color-text-secondary", "#5b6b7a"),
         grid: val("--color-border", "#e0e2ec"),
+        sector,
       });
     };
     read();
@@ -105,10 +105,13 @@ function Insufficient({ icon: IconComponent, message }) {
  */
 export function SectorPie({ data, sufficient }) {
   const t = useTranslations("admin.sector");
+  const tokens = useThemeTokens();
 
   if (!sufficient) {
     return <Insufficient icon={ChartPieSlice} message={t("insufficient")} />;
   }
+
+  const palette = tokens.sector;
 
   return (
     <div dir="ltr">
@@ -127,7 +130,7 @@ export function SectorPie({ data, sufficient }) {
             {data.map((entry, i) => (
               <Cell
                 key={entry.category ?? i}
-                fill={SECTOR_COLORS[i % SECTOR_COLORS.length]}
+                fill={palette[i % palette.length]}
               />
             ))}
           </Pie>
@@ -146,7 +149,7 @@ export function SectorPie({ data, sufficient }) {
               <span
                 aria-hidden
                 className="h-3 w-3 shrink-0 rounded-sm"
-                style={{ backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }}
+                style={{ backgroundColor: palette[i % palette.length] }}
               />
               <span className="truncate text-text-primary">{entry.category}</span>
             </span>
@@ -205,9 +208,9 @@ export function ActiveUsersLine({ data, sufficient }) {
           <Line
             type="monotone"
             dataKey="count"
-            stroke="#245173"
+            stroke={tokens.sector[0]}
             strokeWidth={2.5}
-            dot={{ r: 4, fill: "#245173", strokeWidth: 2, stroke: "#ffffff" }}
+            dot={{ r: 4, fill: tokens.sector[0], strokeWidth: 2, stroke: "#ffffff" }}
             activeDot={{ r: 6 }}
           />
         </LineChart>

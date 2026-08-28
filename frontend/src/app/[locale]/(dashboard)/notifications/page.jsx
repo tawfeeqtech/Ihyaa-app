@@ -15,7 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/config/i18n/link";
 import { Button } from "@/shared/components/Button";
-import { EmptyState } from "@/shared/components/EmptyState";
+import { EmptyState, ErrorState } from "@/shared/components/EmptyState";
 import PaginationBar from "@/shared/components/PaginationBar";
 import { PullToRefresh } from "@/shared/components/PullToRefresh";
 import { RelativeTime } from "@/features/notifications/components/RelativeTime";
@@ -57,24 +57,28 @@ const TYPE_COLOR = {
 
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
+  const tErrors = useTranslations("errors");
   const toast = useToast();
   const router = useRouter();
   const { markRead, markAllRead } = useUnreadCount();
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetchNotifications({ page, perPage: NOTIFICATIONS_PAGE_SIZE });
       setItems((res?.data ?? []).map(mapApiNotification));
       setTotalPages(res?.meta?.last_page ?? 1);
       setUnreadCount(res?.meta?.unread_count ?? 0);
     } catch (err) {
+      setError(true);
       toast.error(err.body?.message ?? t("page.loadError"));
     } finally {
       setLoading(false);
@@ -126,10 +130,18 @@ export default function NotificationsPage() {
             {Array.from({ length: 5 }, (_, i) => (
               <div
                 key={i}
+                aria-hidden
                 className="h-20 animate-pulse rounded-xl border border-border bg-surface-1"
               />
             ))}
           </div>
+        ) : error ? (
+          <ErrorState
+            title={tErrors("title")}
+            description={tErrors("description")}
+            onRetry={load}
+            retryLabel={tErrors("retry")}
+          />
         ) : items.length === 0 ? (
           <EmptyState
             icon={BellSlash}
@@ -207,10 +219,13 @@ function NotificationRow({ n, onRead }) {
       </span>
 
       {!n.is_read && (
-        <span
-          className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary-600"
-          aria-label={t("dropdown.unreadBadge")}
-        />
+        <>
+          <span
+            className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary-600"
+            aria-hidden
+          />
+          <span className="sr-only">{t("dropdown.unreadBadge")}</span>
+        </>
       )}
     </button>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { EmptyState } from "@/shared/components/EmptyState";
+import { EmptyState, ErrorState } from "@/shared/components/EmptyState";
 import PaginationBar from "@/shared/components/PaginationBar";
 
 /**
@@ -13,6 +13,8 @@ import PaginationBar from "@/shared/components/PaginationBar";
  */
 export function InterestBoard({
   loading,
+  error = false,
+  onRetry,
   items,
   emptyIcon: EmptyIcon,
   emptyTitle,
@@ -24,6 +26,7 @@ export function InterestBoard({
   children,
 }) {
   const t = useTranslations("interests");
+  const tErrors = useTranslations("errors");
 
   if (loading) {
     return (
@@ -31,10 +34,22 @@ export function InterestBoard({
         {Array.from({ length: 3 }, (_, i) => (
           <div
             key={i}
+            aria-hidden
             className="h-28 animate-pulse rounded-xl border border-border bg-surface-1"
           />
         ))}
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title={tErrors("title")}
+        description={tErrors("description")}
+        onRetry={onRetry}
+        retryLabel={tErrors("retry")}
+      />
     );
   }
 

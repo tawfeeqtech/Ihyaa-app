@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { Bookmark, BookmarkSimple, Eye } from "@phosphor-icons/react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { Link } from "@/config/i18n/link";
+import { Link, useRouter } from "@/config/i18n/link";
 import { sectorLabels, statusLabels } from "@/features/projects/data/projects";
 import { AIScoreBadge } from "./AIScoreBadge";
 import { avatarHue, initials } from "@/shared/utils";
+import { useToast } from "@/shared/components/Toast";
+import { useAuth } from "@/features/auth";
+import { useSavedStatus } from "@/features/projects/hooks/use-saved-status";
 
 /**
  * Solid card (no glassmorphism) with soft shadows, AI score badge,
@@ -16,7 +18,14 @@ export function ProjectCard({ project, noBookmark = false }) {
   const t = useTranslations("projects");
   const locale = useLocale();
   const format = useFormatter();
-  const [saved, setSaved] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const toast = useToast();
+  const router = useRouter();
+  // Real saved status (EPIC-11 · US-059). When the card hides the bookmark
+  // (`noBookmark`), the hook is a no-op — it skips the saved-list fetch.
+  const { saved, toggle } = useSavedStatus(project.id, {
+    authed: isAuthenticated && !noBookmark,
+  });
 
   const title = locale === "ar" ? project.title.ar : project.title.en;
   const description = locale === "ar" ? project.description.ar : project.description.en;
@@ -91,10 +100,17 @@ export function ProjectCard({ project, noBookmark = false }) {
             {!noBookmark && (
               <button
                 type="button"
-                onClick={() => setSaved((s) => !s)}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.info(t("detail.loginRequired"));
+                    router.push("/login");
+                    return;
+                  }
+                  toggle();
+                }}
                 aria-pressed={saved}
                 aria-label={saved ? t("removeSaved") : t("saveProject")}
-                className="ms-1 flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
+                className="ms-1 flex h-12 w-12 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
               >
                 {saved ? (
                   <BookmarkSimple size={18} weight="fill" className="text-primary-600" />

@@ -28,17 +28,17 @@ export default function AuthLayout({ children }) {
 
       {/* Visual side — primary-600 with islamic pattern */}
       <aside className="relative hidden overflow-hidden bg-primary-600 pattern-islamic lg:flex lg:flex-col lg:justify-center lg:px-16">
-        <div className="relative z-10 space-y-8 text-white">
+        <div className="relative z-10 space-y-8 text-on-primary">
           <span
             aria-hidden
             className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 shadow-glow"
           >
-            <Flame size={36} weight="fill" className="text-white" />
+            <Flame size={36} weight="fill" className="text-on-primary" />
           </span>
           <h2 className="max-w-md font-heading text-4xl font-bold leading-snug">
             {t("visualTitle")}
           </h2>
-          <p className="max-w-md text-lg text-white/85">{t("visualSubtitle")}</p>
+          <p className="max-w-md text-lg text-on-primary/85">{t("visualSubtitle")}</p>
 
           <ul className="space-y-4">
             {[
@@ -48,31 +48,31 @@ export default function AuthLayout({ children }) {
             ].map(({ icon: IconComponent, label }) => (
               <li key={label} className="flex items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <IconComponent size={22} weight="bold" className="text-white" />
+                  <IconComponent size={22} weight="bold" className="text-on-primary" />
                 </span>
-                <span className="text-white/90">{label}</span>
+                <span className="text-on-primary/90">{label}</span>
               </li>
             ))}
           </ul>
 
-          <div className="flex items-center gap-4 border-t border-white/20 pt-6 text-sm text-white/75">
+          <div className="flex items-center gap-4 border-t border-on-primary/20 pt-6 text-sm text-on-primary/75">
             <p>
-              <strong className="block font-heading text-2xl font-bold text-white">2,450+</strong>
+              <strong className="block font-heading text-2xl font-bold text-on-primary">2,450+</strong>
               {t("stats.projects")}
             </p>
             <p>
-              <strong className="block font-heading text-2xl font-bold text-white">890+</strong>
+              <strong className="block font-heading text-2xl font-bold text-on-primary">890+</strong>
               {t("stats.investors")}
             </p>
             <p>
-              <strong className="block font-heading text-2xl font-bold text-white">120+</strong>
+              <strong className="block font-heading text-2xl font-bold text-on-primary">120+</strong>
               {t("stats.deals")}
             </p>
           </div>
 
           <Link
             href="/register"
-            className="inline-block rounded-lg border border-white/50 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-on-primary/50 px-5 text-sm font-semibold text-on-primary transition-colors hover:bg-on-primary/10"
           >
             {t("visualCta")}
           </Link>

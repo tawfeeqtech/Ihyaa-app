@@ -114,10 +114,13 @@ export function NotificationDropdown({
                       {n.title}
                     </span>
                     {!n.is_read && (
-                      <span
-                        className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-600"
-                        aria-label={t("dropdown.unreadBadge")}
-                      />
+                      <>
+                        <span
+                          className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-600"
+                          aria-hidden
+                        />
+                        <span className="sr-only">{t("dropdown.unreadBadge")}</span>
+                      </>
                     )}
                   </span>
                   {n.body && (

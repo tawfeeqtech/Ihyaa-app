@@ -26,6 +26,12 @@ export function SearchBar({ q, onSearch, className }) {
   const timerRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Combobox (WAI-ARIA): the active suggestion drives aria-activedescendant and
+  // is committed on Enter. `suggestions` mirrors the rendered listbox options
+  // (reported up by SuggestionBox) so the input knows the list length.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [suggestions, setSuggestions] = useState([]);
+
   // Sync the draft when the committed query changes from outside (permalink,
   // "clear search" button). While the field is focused the user owns the draft,
   // so we don't clobber in-flight typing.
@@ -43,10 +49,16 @@ export function SearchBar({ q, onSearch, className }) {
 
   const handleChange = (value) => {
     setDraft(value);
+    setActiveIndex(-1); // new keystroke clears the highlighted suggestion
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       onSearch(value.trim());
     }, 300);
+  };
+
+  const handleItemsChange = (next) => {
+    setSuggestions(next);
+    setActiveIndex((i) => (i >= next.length ? -1 : i));
   };
 
   return (
@@ -64,9 +76,36 @@ export function SearchBar({ q, onSearch, className }) {
         onFocus={() => setFocused(true)}
         onBlur={() => window.setTimeout(() => setFocused(false), 150)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            commitNow(draft);
-            inputRef.current?.blur();
+          const listOpen = suggestions.length > 0 && draft.trim().length >= 1;
+          if (e.key === "ArrowDown") {
+            if (listOpen) {
+              e.preventDefault();
+              setActiveIndex((i) => (i < suggestions.length - 1 ? i + 1 : i));
+            }
+          } else if (e.key === "ArrowUp") {
+            if (listOpen) {
+              e.preventDefault();
+              setActiveIndex((i) => (i > 0 ? i - 1 : i));
+            }
+          } else if (e.key === "Home") {
+            if (listOpen) {
+              e.preventDefault();
+              setActiveIndex(0);
+            }
+          } else if (e.key === "End") {
+            if (listOpen) {
+              e.preventDefault();
+              setActiveIndex(suggestions.length - 1);
+            }
+          } else if (e.key === "Enter") {
+            if (activeIndex >= 0 && activeIndex < suggestions.length) {
+              e.preventDefault();
+              commitNow(suggestions[activeIndex].text);
+              inputRef.current?.blur();
+            } else {
+              commitNow(draft);
+              inputRef.current?.blur();
+            }
           } else if (e.key === "Escape") {
             setFocused(false);
             inputRef.current?.blur();
@@ -78,6 +117,9 @@ export function SearchBar({ q, onSearch, className }) {
         role="combobox"
         aria-expanded={focused && draft.trim().length >= 1}
         aria-controls="search-suggestions"
+        aria-activedescendant={
+          activeIndex >= 0 && suggestions.length > 0 ? `search-suggestions-option-${activeIndex}` : undefined
+        }
         className="h-14 w-full rounded-xl border border-border bg-surface-1 ps-12 pe-12 text-text-primary placeholder:text-text-secondary/70 transition focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20"
       />
       {draft && (
@@ -89,7 +131,7 @@ export function SearchBar({ q, onSearch, className }) {
             commitNow("");
             inputRef.current?.focus();
           }}
-          className="absolute inset-y-0 end-3 my-auto flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
+          className="absolute inset-y-0 end-3 my-auto flex h-12 w-12 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-accent-100 hover:text-primary-600"
         >
           <X size={18} />
         </button>
@@ -99,6 +141,9 @@ export function SearchBar({ q, onSearch, className }) {
         id="search-suggestions"
         q={draft}
         show={focused && draft.trim().length >= 1}
+        activeIndex={activeIndex}
+        onActiveIndexChange={setActiveIndex}
+        onItemsChange={handleItemsChange}
         onSelect={(text) => {
           commitNow(text);
           setDraft(text);

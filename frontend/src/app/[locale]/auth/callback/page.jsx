@@ -74,7 +74,7 @@ export default function AuthCallbackPage() {
         <p className="text-text-secondary">{error}</p>
         <a
           href="/ar/login"
-          className="rounded-lg bg-primary-600 px-6 py-3 font-medium text-white hover:bg-primary-500"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg bg-primary-600 px-6 font-medium text-on-primary hover:bg-primary-500"
         >
           Back to Login
         </a>

@@ -39,7 +39,7 @@ export function SortControl({ params, setParams, className }) {
           type="button"
           onClick={cycleSort}
           aria-label={t("label")}
-          className="flex h-10 items-center rounded-md px-3 text-sm font-medium text-text-primary transition-colors hover:bg-accent-100 hover:text-primary-600"
+          className="flex h-12 items-center rounded-md px-3 text-sm font-medium text-text-primary transition-colors hover:bg-accent-100 hover:text-primary-600"
         >
           {t(params.sort)}
         </button>
@@ -48,7 +48,7 @@ export function SortControl({ params, setParams, className }) {
           onClick={toggleDir}
           aria-label={params.dir === "asc" ? t("asc") : t("desc")}
           aria-pressed={params.dir === "asc"}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-primary-600 transition-colors hover:bg-accent-100"
+          className="flex h-12 w-12 items-center justify-center rounded-md text-primary-600 transition-colors hover:bg-accent-100"
         >
           {params.dir === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
         </button>

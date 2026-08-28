@@ -124,7 +124,7 @@ export default function SelectRolePage() {
               <span
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-lg",
-                  role === key ? "bg-primary-600 text-white" : "bg-surface-0 text-text-secondary"
+                  role === key ? "bg-primary-600 text-on-primary" : "bg-surface-0 text-text-secondary"
                 )}
               >
                 <IconComponent size={20} weight={role === key ? "fill" : "regular"} />

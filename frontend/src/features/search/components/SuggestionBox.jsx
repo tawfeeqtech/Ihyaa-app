@@ -5,6 +5,7 @@ import { MagnifyingGlass, Tag } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { api } from "@/shared/lib/api";
 import { useDebouncedSearch } from "@/features/search/hooks/useDebouncedSearch";
+import { cn, sanitizeHighlightHtml } from "@/shared/utils";
 
 /**
  * Live suggestion dropdown — US-031 (T132, T133).
@@ -16,7 +17,16 @@ import { useDebouncedSearch } from "@/features/search/hooks/useDebouncedSearch";
  * The parent passes the raw input `q`; the box decides when to fetch
  * (q.trim().length >= 2). `onSelect(text)` commits the chosen term.
  */
-export function SuggestionBox({ id, q, onSelect, show = false, className }) {
+export function SuggestionBox({
+  id,
+  q,
+  onSelect,
+  show = false,
+  className,
+  activeIndex = -1,
+  onActiveIndexChange,
+  onItemsChange,
+}) {
   const t = useTranslations("search.suggestions");
   const debounced = useDebouncedSearch(q, 300);
   const [items, setItems] = useState([]);
@@ -80,6 +90,12 @@ export function SuggestionBox({ id, q, onSelect, show = false, className }) {
     };
   }, [debounced]);
 
+  // Report the rendered options to the parent so the combobox input can
+  // compute aria-activedescendant and handle Arrow/Enter against the list.
+  useEffect(() => {
+    onItemsChange?.(items);
+  }, [items, onItemsChange]);
+
   const visible =
     show && (loading || items.length > 0 || (error && debounced.trim().length >= 2));
 
@@ -100,17 +116,29 @@ export function SuggestionBox({ id, q, onSelect, show = false, className }) {
             <li className="px-4 py-3 text-sm text-text-secondary">{t("empty")}</li>
           )}
 
-          {items.map((item) => {
+          {items.map((item, index) => {
             const key = `${item.type}:${item.text}`;
             const isProject = item.type === "project_title";
+            const isActive = index === activeIndex;
             return (
               <li key={key}>
                 <button
                   type="button"
+                  id={`${id}-option-${index}`}
                   role="option"
-                  aria-selected={false}
+                  aria-selected={isActive}
+                  // Options are not tabbable — focus stays in the combobox input
+                  // and moves via the arrow keys (aria-activedescendant).
+                  tabIndex={-1}
                   onClick={() => onSelect(item.text)}
-                  className="flex min-h-12 w-full items-center gap-3 px-4 text-start text-sm text-text-primary transition-colors hover:bg-accent-100 hover:text-primary-600"
+                  onMouseEnter={() => onActiveIndexChange?.(index)}
+                  onMouseLeave={() => onActiveIndexChange?.(-1)}
+                  className={cn(
+                    "flex min-h-12 w-full items-center gap-3 px-4 text-start text-sm text-text-primary transition-colors",
+                    isActive
+                      ? "bg-accent-100 text-primary-700"
+                      : "hover:bg-accent-100 hover:text-primary-600"
+                  )}
                 >
                   {isProject ? (
                     <MagnifyingGlass
@@ -122,10 +150,11 @@ export function SuggestionBox({ id, q, onSelect, show = false, className }) {
                     <Tag size={16} className="shrink-0 text-text-secondary" aria-hidden />
                   )}
                   {isProject && item.highlighted ? (
-                    // The engine highlights the match in <strong> — it owns the markup.
+                    // The engine highlights the match in <strong> — keep only that
+                    // tag, strip any attributes and neutralise stray markup (XSS guard).
                     <span
                       className="truncate"
-                      dangerouslySetInnerHTML={{ __html: item.highlighted }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHighlightHtml(item.highlighted) }}
                     />
                   ) : (
                     <span className="truncate">{item.text}</span>

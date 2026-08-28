@@ -10,6 +10,11 @@
   --color-primary-600: #245173;
   --color-primary-500: #355e7e;
 
+  /* Ink on primary-600 filled surfaces (hero, CTA, primary buttons).
+     White in light; inverts to a dark navy in dark mode where
+     --color-primary-600 is lightened to #5b8db0 (white-on ≈ 3.6:1 fails AA). */
+  --color-on-primary: #ffffff;
+
   /* Accent tint — backgrounds only, never text */
   --color-accent-100: #e1f1ff;
 
@@ -64,6 +69,17 @@
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
+/* ---- Chart categorical palette (admin analytics) ----
+   Resolved to concrete values in AnalyticsCharts.jsx via getComputedStyle so
+   the SVG fills/strokes adapt to light/dark (dark overrides below). */
+:root {
+  --chart-1: #245173;
+  --chart-2: #e09a2e;
+  --chart-3: #2f8f6f;
+  --chart-4: #7a5a9c;
+  --chart-5: #355e7e;
+}
+
 /* ---- Locale-aware font stacks ---- */
 @layer base {
   html[lang="ar"] {
@@ -89,6 +105,15 @@
      (#5b8db0 ≈ 4.7:1 on surface-0; white-on ≈ 3.6:1 for buttons/UI) */
   --color-primary-600: #5b8db0;
   --color-primary-500: #6b9cc0;
+  /* Ink on primary-600 filled surfaces — dark navy gives ≥ 5:1 on #5b8db0 */
+  --color-on-primary: #0a1520;
+
+  /* Chart categorical palette — lightened for dark surfaces */
+  --chart-1: #6b9cc0;
+  --chart-2: #e6b04f;
+  --chart-3: #3fae8a;
+  --chart-4: #9b7ac4;
+  --chart-5: #5b8db0;
   --color-tint-success: #1a3d32;
   --color-tint-danger: #3d201e;
   --color-tint-warning: #3d3020;

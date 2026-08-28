@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PaperPlaneTilt } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/shared/components/Button";
 import { cn } from "@/shared/utils";
 import { sendInterest } from "@/features/interests/lib/interest";
+import { useDialogFocus } from "@/shared/hooks/use-dialog-focus";
 
 const INTEREST_TYPES = ["investment", "technical_development", "consultation"];
 const MAX_MESSAGE = 500;
@@ -23,7 +24,10 @@ const MAX_MESSAGE = 500;
 export function InterestModal({ open, project, onClose, onSent }) {
   const t = useTranslations("interests");
   const locale = useLocale();
-  const dialogRef = useRef(null);
+
+  // Focus trap for the dialog: move focus in on open, cycle Tab, close on
+  // Escape, restore focus to the trigger (the "interested" button) on close.
+  const { containerRef: dialogRef } = useDialogFocus({ open, onClose });
 
   const [interestType, setInterestType] = useState("");
   const [message, setMessage] = useState("");
@@ -40,20 +44,6 @@ export function InterestModal({ open, project, onClose, onSent }) {
 
   // The dialog content is unmounted when closed (`{open && …}` inside
   // AnimatePresence), so the form state resets naturally on every open.
-
-  // Focus the dialog for screen readers + close on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
 
   function handleMessageChange(e) {
     const raw = e.target.value;
