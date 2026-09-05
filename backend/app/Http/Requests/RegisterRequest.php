@@ -25,7 +25,9 @@ class RegisterRequest extends FormRequest
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', Rule::enum(UserRole::class)],
+            'role' => ['required_without:roles', 'nullable', Rule::enum(UserRole::class)],
+            'roles' => ['required_without:role', 'nullable', 'array', 'min:1', 'max:2'],
+            'roles.*' => ['distinct', Rule::enum(UserRole::class)],
             // ملف صاحب الفكرة
             'university' => ['nullable', 'string', 'max:190'],
             'major' => ['nullable', 'string', 'max:190'],

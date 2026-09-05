@@ -23,6 +23,7 @@ class ProfileResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'role' => $this->role?->value,
+            'roles' => $this->roleValues(),
             'avatar_url' => $this->avatar_path ? asset('storage/'.$this->avatar_path) : null,
             'bio' => $this->bio,
         ];

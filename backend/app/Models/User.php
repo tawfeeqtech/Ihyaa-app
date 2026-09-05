@@ -138,12 +138,12 @@ class User extends Authenticatable
 
     public function isIdeaOwner(): bool
     {
-        return $this->role === UserRole::IDEA_OWNER;
+        return $this->hasRole(UserRole::IDEA_OWNER);
     }
 
     public function isInvestor(): bool
     {
-        return $this->role === UserRole::INVESTOR;
+        return $this->hasRole(UserRole::INVESTOR);
     }
 
     public function isAdmin(): bool
@@ -153,7 +153,11 @@ class User extends Authenticatable
 
     public function hasRole(UserRole $role): bool
     {
-        return $this->role === $role;
+        if ($this->role === $role) {
+            return true;
+        }
+
+        return $this->roles()->where('name', $role->value)->exists();
     }
 
     /**
@@ -162,13 +166,34 @@ class User extends Authenticatable
      */
     public function setRole(UserRole $role): void
     {
-        $this->forceFill(['role' => $role])->save();
+        $this->setRoles([$role]);
+    }
 
-        $roleModel = Role::where('name', $role->value)->first();
+    /** @param list<UserRole> $roles */
+    public function setRoles(array $roles): void
+    {
+        $primaryRole = $roles[0] ?? null;
+        $this->forceFill(['role' => $primaryRole])->save();
 
-        if ($roleModel) {
-            $this->roles()->sync([$roleModel->id]);
+        $roleIds = Role::whereIn('name', array_map(
+            static fn (UserRole $role): string => $role->value,
+            $roles,
+        ))->pluck('id');
+        $this->roles()->sync($roleIds);
+    }
+
+    /** @return list<string> */
+    public function roleValues(): array
+    {
+        $values = $this->relationLoaded('roles')
+            ? $this->roles->pluck('name')->all()
+            : $this->roles()->pluck('name')->all();
+
+        if ($this->role !== null && ! in_array($this->role->value, $values, true)) {
+            array_unshift($values, $this->role->value);
         }
+
+        return array_values(array_unique($values));
     }
 
     // ——————————————————————— OTP (6 أرقام — دقيقة واحدة) ———————————————————————
