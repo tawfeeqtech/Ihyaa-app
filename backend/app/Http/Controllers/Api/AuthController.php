@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\Notification;
-use App\Models\Role;
 use App\Models\User;
 use App\Support\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -34,10 +33,15 @@ class AuthController
         // T163: القواعد في RegisterRequest — نقل من الـ controller بلا تغيير في السلوك.
         $data = $request->validated();
 
-        $role = UserRole::from($data['role']);
+        $roles = collect($data['roles'] ?? [$data['role']])
+            ->map(fn (string $value): UserRole => UserRole::from($value))
+            ->unique()
+            ->values()
+            ->all();
+        $role = $roles[0];
 
         // admin لا يُنشأ بالتسجيل العام (SRS §1.2)
-        if ($role->isAdmin()) {
+        if (collect($roles)->contains(fn (UserRole $candidate): bool => $candidate->isAdmin())) {
             return $this->error('FORBIDDEN', __('auth.admin_registration_forbidden'), 403);
         }
 
@@ -53,11 +57,7 @@ class AuthController
             'preferred_sectors' => $data['preferred_sectors'] ?? null,
         ]);
 
-        $roleModel = Role::where('name', $role->value)->first();
-
-        if ($roleModel) {
-            $user->roles()->attach($roleModel->id);
-        }
+        $user->setRoles($roles);
 
         // إشعار ترحيبي فوري (T144) — في التطبيق فقط، بلا بريد (الدستور C11).
         Notification::pushNotification(
@@ -322,6 +322,7 @@ class AuthController
         $params = http_build_query([
             'token' => $token->plainTextToken,
             'role' => $user->role?->value,
+            'roles' => implode(',', $user->roleValues()),
             'name' => $user->name,
             'email' => $user->email,
             'email_verified' => $user->email_verified_at !== null ? '1' : '0',
@@ -354,14 +355,20 @@ class AuthController
         $user = $request->user();
 
         $data = $request->validate([
-            'role' => ['required', Rule::enum(UserRole::class)],
+            'role' => ['required_without:roles', 'nullable', Rule::enum(UserRole::class)],
+            'roles' => ['required_without:role', 'nullable', 'array', 'min:1', 'max:2'],
+            'roles.*' => ['distinct', Rule::enum(UserRole::class)],
             'state' => ['required', 'string'],
         ]);
 
-        $role = UserRole::from($data['role']);
+        $roles = collect($data['roles'] ?? [$data['role']])
+            ->map(fn (string $value): UserRole => UserRole::from($value))
+            ->unique()
+            ->values()
+            ->all();
 
         // admin لا يُثبَّت عبر هذا المسار — مثل التسجيل العام (SRS §1.2)
-        if ($role->isAdmin()) {
+        if (collect($roles)->contains(fn (UserRole $candidate): bool => $candidate->isAdmin())) {
             return $this->error('FORBIDDEN', __('auth.admin_registration_forbidden'), 403);
         }
 
@@ -372,7 +379,7 @@ class AuthController
             return $this->error('INVALID_STATE', __('auth.oauth_invalid_state'), 401);
         }
 
-        $user->setRole($role);
+        $user->setRoles($roles);
 
         return $this->success([
             'user' => $user->fresh()->toApiArray(),

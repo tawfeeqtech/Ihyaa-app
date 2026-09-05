@@ -34,7 +34,7 @@ abstract class AbstractRoleMiddleware
             ], 409);
         }
 
-        abort_unless($user->role === $this->role(), 403, __('auth.forbidden'));
+        abort_unless($user->hasRole($this->role()), 403, __('auth.forbidden'));
 
         return $next($request);
     }
