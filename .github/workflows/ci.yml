@@ -1,0 +1,203 @@
+# =============================================================================
+# Ihyaa CI — Laravel 13 backend + Next.js 16 frontend (دستور VII: CI/CD gate)
+# -----------------------------------------------------------------------------
+# Triggers:
+#   - push to `main`
+#   - pull_request targeting `main`
+#   Path filter: only run when backend / frontend / workflow itself changed.
+#
+# Coverage gate (دستور VII — CI blocks merge on failure):
+#   backend   → `php artisan test --coverage --min=80`   (overall app/ ≥ 80%)
+#   ai        → `php artisan test -c phpunit.ai.xml --coverage --min=85` (AI ≥ 85%)
+#   frontend  → ESLint + production build (blocks merge on lint/build failure)
+#
+# How the gate blocks a merge:
+#   - `--min` makes Pest/PHPUnit exit non-zero (code 1) when the measured
+#     coverage is below the threshold, so the job fails.
+#   - GitHub Actions marks the check ❌ red for the PR; with branch protection
+#     ("Require status checks to pass before merging") the merge button is
+#     disabled. Without protection it still shows as a failed check.
+# =============================================================================
+name: CI (Laravel + Next.js)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/**'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # BACKEND — Laravel 13 (PHP 8.3) + Pest + Pint + coverage gate
+  # ===========================================================================
+  backend:
+    name: Backend (tests · pint · coverage ≥80%)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # COMPOSER_ROOT_VERSION=1.0.0 avoids Composer's "root version" git-detection
+    # failure when the checkout is a shallow / detached HEAD (known issue).
+    env:
+      COMPOSER_ROOT_VERSION: 1.0.0
+      # phpunit.xml defaults to SQLite for local `php artisan test`; PHPUnit only
+      # applies <env> when the variable is NOT already set in the real process
+      # environment, so these vars switch CI to the MySQL service container.
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ihyaa_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ihyaa_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Redis — optional (queues / cache / Horizon / Reverb). Kept for parity
+      # with the full test surface; remove if the suite never touches it.
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Meilisearch — Laravel Scout full-text search. Some Search tests swap in
+      # fakes (tests/Feature/Search/FakeSearchEngine), but keeping the real
+      # engine avoids surprises for integration-level Search tests.
+      meilisearch:
+        image: getmeili/meilisearch:v1.12
+        env:
+          MEILI_MASTER_KEY: ihyaa_meili_test_key
+        ports: ['7700:7700']
+        options: >-
+          --health-cmd "wget -q http://localhost:7700/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3 (+ Xdebug for coverage)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, fileinfo, json, mbstring, openssl, pcntl, pdo, pdo_mysql, posix, tokenizer, xml
+          # Xdebug provides the coverage driver for `--coverage` / `--min`.
+          # (PCOV is a faster alternative; either satisfies the coverage gate.)
+          coverage: xdebug
+
+      - name: Configure test environment (.env)
+        run: |
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=ihyaa_test" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=root" >> .env
+          echo "REDIS_HOST=127.0.0.1" >> .env
+          echo "REDIS_CLIENT=predis" >> .env
+          echo "MEILISEARCH_HOST=http://127.0.0.1:7700" >> .env
+          echo "MEILISEARCH_KEY=ihyaa_meili_test_key" >> .env
+          echo "SCOUT_DRIVER=meilisearch" >> .env
+          echo "AI_MOCK=true" >> .env
+
+      - name: Install dependencies (Composer)
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      - name: Package discovery
+        run: php artisan package:discover
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      # -----------------------------------------------------------------------
+      # COVERAGE GATE — overall backend (whole `app/`, per phpunit.xml <source>)
+      # `--coverage --min=80` ⇒ non-zero exit if coverage < 80% ⇒ PR blocked.
+      # NOTE: non-parallel on purpose — Pest parallel workers do not merge
+      # coverage, so a parallel run cannot enforce a trustworthy `--min` gate.
+      # -----------------------------------------------------------------------
+      - name: Test suite + coverage gate (Pest, ≥80%)
+        run: php artisan test --coverage --min=80
+
+      # -----------------------------------------------------------------------
+      # AI COVERAGE GATE — scoped to AI code (phpunit.ai.xml)
+      # Runs only the AI unit suites (tests/Unit/Ai + tests/Unit/AiAgent) and
+      # measures coverage against AI source only (app/Ai, app/Services/AI,
+      # app/Services/AiGateway.php, app/Exceptions/Ai). Requires ≥ 85%.
+      #
+      # Uses `vendor/bin/pest` directly (NOT `php artisan test -c …`): Laravel's
+      # `php artisan test` (Collision) appends its own --configuration=phpunit.xml
+      # to the process and strips --coverage/--min (it enforces the gate itself),
+      # which would conflict with a custom config. Pest natively parses --min and
+      # exits non-zero when coverage < threshold.
+      # -----------------------------------------------------------------------
+      - name: AI test suite + coverage gate (≥85%)
+        run: vendor/bin/pest -c phpunit.ai.xml --coverage --min=85
+
+      # -----------------------------------------------------------------------
+      # LINT — Laravel Pint (formatting). Fails on style drift.
+      # -----------------------------------------------------------------------
+      - name: Lint (Pint)
+        run: vendor/bin/pint --test
+
+  # ===========================================================================
+  # FRONTEND — Next.js 16 (Node 20) + ESLint + production build
+  # ===========================================================================
+  frontend:
+    name: Frontend (lint · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      # ESLint via package.json script (`eslint` → eslint.config.mjs flat config).
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      # `next build` — fails CI on type/compile errors and catches RTL/i18n issues.
+      - name: Build (Next.js)
+        run: npm run build

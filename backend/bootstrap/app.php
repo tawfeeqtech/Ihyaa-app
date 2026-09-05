@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Handler as ApiExceptionHandler;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnforceReportDisclosure;
 use App\Http\Middleware\EnsureEmailVerified;
@@ -9,15 +10,9 @@ use App\Http\Middleware\PendingRoleMiddleware;
 use App\Http\Middleware\RefreshSanctumToken;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\TrackRateLimitViolations;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Exception\HttpException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -44,85 +39,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
-        );
-
-        // استجابة 429 موحّدة لكل نقاط /api (تغطي أي limiter)
-        $exceptions->renderable(function (TooManyRequestsHttpException $e, Request $request) {
-            if ($request->is('api/*')) {
-                $headers = $e->getHeaders();
-                $retryAfter = (int) ($headers['Retry-After'] ?? 60);
-
-                return response()->json([
-                    'success' => false,
-                    'code' => 'RATE_LIMIT_EXCEEDED',
-                    'message' => __('rate_limit.exceeded', ['seconds' => $retryAfter]),
-                    'errors' => null,
-                    'retry_after' => $retryAfter,
-                    'reset_at' => (int) ($headers['X-RateLimit-Reset'] ?? now()->addSeconds($retryAfter)->timestamp),
-                ], 429, $headers);
-            }
-        });
-
-        // EPIC-08: استثناءات الاهتمام/الاتفاق (DuplicateInterest, ProfileIncomplete, ...)
-        $exceptions->renderable(function (App\Exceptions\Interest\InterestException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json(array_merge([
-                    'success' => false,
-                    'code' => $e->code(),
-                    'message' => $e->getMessage(),
-                    'errors' => $e->errors() ?: null,
-                ], $e->extra()), $e->status());
-            }
-        });
-
-        // 422 موحّدة مع كود VALIDATION_FAILED
-        $exceptions->renderable(function (ValidationException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'success' => false,
-                    'code' => 'VALIDATION_FAILED',
-                    'message' => $e->getMessage(),
-                    'errors' => $e->errors(),
-                ], 422);
-            }
-        });
-
-        // 401 موحّدة — لا توكن أو منتهٍ
-        $exceptions->renderable(function (AuthenticationException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'success' => false,
-                    'code' => 'UNAUTHENTICATED',
-                    'message' => __('auth.unauthenticated'),
-                    'errors' => null,
-                ], 401);
-            }
-        });
-
-        // 404 موحّدة — ModelNotFoundException تُحوَّل إلى NotFoundHttpException في prepareException
-        // (لذلك نلتقط NotFoundHttpException لا ModelNotFoundException).
-        $exceptions->renderable(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'success' => false,
-                    'code' => 'NOT_FOUND',
-                    'message' => __('errors.not_found'),
-                    'errors' => null,
-                ], 404);
-            }
-        });
-
-        // 403 موحّدة (abort / abort_if — كود FORBIDDEN)
-        $exceptions->renderable(function (HttpException $e, Request $request) {
-            if ($request->is('api/*') && $e->getStatusCode() === 403) {
-                return response()->json([
-                    'success' => false,
-                    'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage() ?: __('errors.forbidden'),
-                    'errors' => null,
-                ], 403);
-            }
-        });
+        // T028 — كل رسم الاستثناءات → غلاف خطأ JSON الموحّد (app/Exceptions/Handler.php).
+        ApiExceptionHandler::register($exceptions);
     })->create();

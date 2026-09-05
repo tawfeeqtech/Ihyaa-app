@@ -95,6 +95,11 @@
     "trash.force_deleted": "تم حذف المشروع نهائياً",
     "trash.confirm_required": "يجب تأكيد الحذف النهائي",
 
+    "search.unavailable": "خدمة البحث غير متاحة حالياً، حاول مجدداً",
+
+    "agreement.access_denied": "ليس لديك صلاحية الوصول إلى هذا المستند",
+    "agreement.pdf_title": "اتفاقية التعاون — :app",
+
     "ai_agent.analysis_queued": "بدأ التحليل — النتيجة جاهزة عبر معرف النتيجة",
     "ai_agent.artifact_not_found": "التحليل غير موجود أو انتهت صلاحيته (24 ساعة)",
     "ai_agent.analysis_completed_title": "اكتمل تحليل مشروعك",

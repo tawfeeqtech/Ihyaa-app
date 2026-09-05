@@ -111,7 +111,7 @@ class SearchController
     {
         return $this->error(
             'SEARCH_UNAVAILABLE',
-            'خدمة البحث غير متاحة حالياً، حاول مجدداً',
+            __('search.unavailable'),
             503,
             [],
             ['retryable' => true]

@@ -15,6 +15,12 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+    <!--
+      Coverage scope (T031/T151): "app" is what the CI coverage gate measures
+      (php artisan test -coverage -min=80). A coverage driver (Xdebug or PCOV)
+      must be active; in CI it is enabled via shivammathur/setup-php
+      "coverage: xdebug".
+    -->
     <source>
         <include>
             <directory>app</directory>

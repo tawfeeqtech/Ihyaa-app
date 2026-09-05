@@ -2,6 +2,7 @@
 
 namespace App\Support\Traits;
 
+use App\Http\Responses\ApiError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -46,14 +47,8 @@ trait ApiResponse
      */
     protected function error(string $code, string $message, int $status = 400, mixed $errors = null, array $extra = []): JsonResponse
     {
-        $payload = [
-            'success' => false,
-            'code' => $code,
-            'message' => $message,
-            'errors' => $errors,
-        ];
-
-        return response()->json(array_merge($payload, $extra), $status);
+        // T028 — البنية الموحّدة عبر ApiError (app/Http/Responses/ApiError.php).
+        return (new ApiError($code, $message, $errors, $extra))->toResponse($status);
     }
 
     protected function forbidden(?string $message = null): JsonResponse

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\EvaluationStatus;
+use App\Enums\InterestStatus;
 use App\Models\Evaluation;
 use App\Models\Category;
 use App\Models\Interest;
